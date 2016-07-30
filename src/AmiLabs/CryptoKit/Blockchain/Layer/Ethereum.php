@@ -281,11 +281,9 @@ class Ethereum implements ILayer
      */
     public function getTxConfirmations($txHash, $logResult = FALSE){
         $result = 0;
-        // Current block number - Tx block number
-        $aServer = $this->getRPC()->exec('eth-service', 'getServerState', array(), $logResult, FALSE);
-        $aTxData = $this->getRPC()->exec('eth-service', 'getTx', array($txHash), $logResult, TRUE);
-        if(isset($aTxData['block'])){
-            $result = $aServer['lastBlock'] - $aTxData['block'];
+        $aTxData = $this->getRPC()->exec('eth-service', 'getTransactionDetails', array($txHash), $logResult, TRUE);
+        if(isset($aTxData['tx'])){
+            $result = (int)$aTxData['tx']['confirmations'];
         }
         return $result;
     }

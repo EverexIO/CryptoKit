@@ -281,7 +281,7 @@ class Ethereum implements ILayer
      */
     public function getTxConfirmations($txHash, $logResult = FALSE){
         $result = 0;
-        $aTxData = $this->getRPC()->exec('eth-service', 'getTransactionDetails', array($txHash), $logResult, TRUE);
+        $aTxData = $this->getRPC()->exec('eth-service', 'getTransactionDetails', array($txHash), $logResult, FALSE);
         if(isset($aTxData['tx'])){
             $result = (int)$aTxData['tx']['confirmations'];
         }

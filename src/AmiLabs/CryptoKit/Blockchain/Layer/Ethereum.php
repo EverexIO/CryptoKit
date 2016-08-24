@@ -77,27 +77,7 @@ class Ethereum implements ILayer
      */
     public function getServerState($ignoreLastBlockInfo = FALSE, $logResult = FALSE)
     {
-        $aState = array('last_block' => 0);
-
-        /*
-        for($attempt = 0; $attempt < self::LAST_BLOCK_INFO_ATTEMPTS; ++$attempt){
-            $aState = $this->getRPC()->exec(
-                'counterpartyd',
-                'get_running_info',
-                array(),
-                $logResult,
-                FALSE
-            );
-            if($ignoreLastBlockInfo || !is_null($aState['last_block'])){
-                break;
-            }
-            usleep(self::LAST_BLOCK_INFO_WAIT);
-        }
-        if(!$ignoreLastBlockInfo && is_null($aState['last_block'])){
-            throw new RuntimeException('Blockchain: cannot get last block info');
-        }
-         */
-
+        $aState = $this->getRPC()->exec('eth-service', 'getServerState', array(), $logResult);
         return $aState;
     }
 

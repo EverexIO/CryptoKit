@@ -3,12 +3,12 @@
     "type": "project",
     "description": "",
     "keywords": [],
-    "homepage": "http://everex.io",
+    "homepage": "https://everex.io",
     "license": "Apache 2.0",
     "authors": [
         {
-            "name": "AmiLabs",
-            "homepage": "http://amilabs.co"
+            "name": "Everex",
+            "homepage": "https://everex.io"
         }
     ],
     "require": {

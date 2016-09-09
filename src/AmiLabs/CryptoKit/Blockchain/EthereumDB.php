@@ -115,6 +115,23 @@ class EthereumDB {
     }
 
     /**
+     * Returns list of block transactions.
+     *
+     * @param int $block
+     * @return array
+     */
+    public function getBlockTransactions($block){
+        $cursor = $this->dbs['transactions']->find(array("blockNumber" => $block));
+        $result = array();
+        while($cursor->hasNext()){
+            $res = $cursor->getNext();
+            unset($res["_id"]);
+            $result[] = $res;
+        }
+        return $result;
+    }
+
+    /**
      * Returns advanced address details.
      *
      * @param string $address
@@ -207,6 +224,7 @@ class EthereumDB {
      * @param string  $address  Address
      * @return double
      */
+    /*
     public function getBalance($address){
         $balance = $this->_callRPC('eth_getBalance', array($address, 'latest'));
         if(false !== $balance){
@@ -214,6 +232,7 @@ class EthereumDB {
         }
         return $balance;
     }
+    */
 
     /**
      * Return transaction data by transaction hash.

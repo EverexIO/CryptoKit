@@ -52,21 +52,21 @@ class EthereumDB {
     /**
      * Constructor.
      *
-     * @throws Exception
+     * @throws \Exception
      */
     protected function __construct(array $aConfig){
         $this->aSettings = $aConfig;
         // @todo: get config from Application if running inside application
         if(!isset($this->aSettings['mongo'])){
-            throw new Exception("Mongo configuration not found");
+            throw new \Exception("Mongo configuration not found");
         }
         /*
         if(!isset($this->aSettings['ethereum'])){
-            throw new Exception("Ethereum configuration not found");
+            throw new \Exception("Ethereum configuration not found");
         }
         */
         if(class_exists("MongoClient")){
-            $oMongo = new MongoClient($this->aSettings['mongo']['server']);
+            $oMongo = new \MongoClient($this->aSettings['mongo']['server']);
             $oDB = $oMongo->{$this->aSettings['mongo']['dbName']};
             $this->dbs = array(
                 'transactions' => $oDB->{"everex.eth.transactions"},
@@ -78,7 +78,7 @@ class EthereumDB {
                 'balances'     => $oDB->{"everex.erc20.balances"},
             );
         }else{
-            throw new Exception("MongoClient class not found, php_mongo extension required");
+            throw new \Exception("MongoClient class not found, php_mongo extension required");
         }
     }
 

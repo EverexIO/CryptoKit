@@ -85,7 +85,7 @@ class EthereumDB {
      */
     public static function db(array $aConfig = array()){
         if(is_null(self::$oInstance)){
-            self::$oInstance = new Etherscan($aConfig);
+            self::$oInstance = new EthereumDB($aConfig);
         }
         return self::$oInstance;
     }

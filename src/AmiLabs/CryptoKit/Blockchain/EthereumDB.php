@@ -18,7 +18,8 @@
 
 namespace AmiLabs\CryptoKit\Blockchain;
 
-use \AmiLabs\DevKit\Cache;
+use AmiLabs\DevKit\Cache;
+// use AmiLabs\DevKit\Application;
 
 /**
  * Class to interact with Ethereum parsed mongodb database.
@@ -55,12 +56,15 @@ class EthereumDB {
      */
     protected function __construct(array $aConfig){
         $this->aSettings = $aConfig;
+        // @todo: get config from Application if running inside application
         if(!isset($this->aSettings['mongo'])){
             throw new Exception("Mongo configuration not found");
         }
+        /*
         if(!isset($this->aSettings['ethereum'])){
             throw new Exception("Ethereum configuration not found");
         }
+        */
         if(class_exists("MongoClient")){
             $oMongo = new MongoClient($this->aSettings['mongo']['server']);
             $oDB = $oMongo->{$this->aSettings['mongo']['dbName']};

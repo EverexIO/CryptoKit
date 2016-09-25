@@ -56,6 +56,9 @@ class EthereumDB {
      */
     protected function __construct(array $aConfig){
         $this->aSettings = $aConfig;
+        if(!isset($this->aSettings['mongo'])){
+            $this->aSettings = \AmiLabs\DevKit\Application::getInstance()->getConfig()->get('CryptoKit');
+        }
         // @todo: get config from Application if running inside application
         if(!isset($this->aSettings['mongo'])){
             throw new \Exception("Mongo configuration not found");
@@ -121,7 +124,7 @@ class EthereumDB {
      * @return array
      */
     public function getBlockTransactions($block){
-        $cursor = $this->dbs['transactions']->find(array("blockNumber" => $block));
+        $cursor = $this->dbs['transactions']->find(array("blockNumber" => (int)$block));
         $result = array();
         while($cursor->hasNext()){
             $res = $cursor->getNext();

@@ -19,13 +19,23 @@
 namespace AmiLabs\CryptoKit\Blockchain;
 
 use AmiLabs\DevKit\Cache;
-// use AmiLabs\DevKit\Application;
+use AmiLabs\DevKit\Registry;
+use AmiLabs\CryptoKit\RPCJSON;
 
 /**
  * Class to interact with Ethereum parsed mongodb database.
  */
 class EthereumDB {
+    /**
+     * Token cache update interval
+     */
+    const TOKEN_UPDATE_INTERVAL = 3600;
 
+    /**
+     * Settings array
+     *
+     * @var array
+     */
     protected $aSettings = array();
 
     /**
@@ -57,17 +67,14 @@ class EthereumDB {
     protected function __construct(array $aConfig){
         $this->aSettings = $aConfig;
         if(!isset($this->aSettings['mongo'])){
-            $this->aSettings = \AmiLabs\DevKit\Application::getInstance()->getConfig()->get('CryptoKit');
+            $this->aSettings['mongo'] = Registry::useStorage('CFG')->get('CryptoKit/mongo', FALSE);
+            if(FALSE === $this->aSettings['mongo']){
+                throw new \Exception("Mongo configuration not found");
+            }
         }
-        // @todo: get config from Application if running inside application
-        if(!isset($this->aSettings['mongo'])){
-            throw new \Exception("Mongo configuration not found");
-        }
-        /*
         if(!isset($this->aSettings['ethereum'])){
-            throw new \Exception("Ethereum configuration not found");
+            $this->aSettings['ethereum'] = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
         }
-        */
         if(class_exists("MongoClient")){
             $oMongo = new \MongoClient($this->aSettings['mongo']['server']);
             $oDB = $oMongo->{$this->aSettings['mongo']['dbName']};
@@ -227,15 +234,17 @@ class EthereumDB {
      * @param string  $address  Address
      * @return double
      */
-    /*
     public function getBalance($address){
-        $balance = $this->_callRPC('eth_getBalance', array($address, 'latest'));
-        if(false !== $balance){
-            $balance = hexdec(str_replace('0x', '', $balance)) / pow(10, 18);
+        $balance = 0;
+        if(isset($this->aSettings['ethereum']) && $this->aSettings['ethereum']){
+            $oEthRPC = new RPCJSON(array('address' => $this->aSettings['ethereum']));
+            $balance = $oEthRPC->exec('eth_getBalance', array($address, 'latest'));
+            if(false !== $balance){
+                $balance = hexdec(str_replace('0x', '', $balance)) / pow(10, 18);
+            }
         }
         return $balance;
     }
-    */
 
     /**
      * Return transaction data by transaction hash.
@@ -302,7 +311,7 @@ class EthereumDB {
      */
     public function getTokens($updateCache = false){
         $oCache = Cache::get('tokens');
-        if($updateCache || !$oCache->exists()){
+        if($updateCache || !$oCache->exists() || $oCache->clearIfOlderThan(self::TOKEN_UPDATE_INTERVAL)){
             $cursor = $this->dbs['tokens']->find()->sort(array("transfersCount" => -1));
             $aResult = array();
             foreach($cursor as $aToken){

@@ -67,7 +67,7 @@ class RPCJSON extends RPCServiceClient implements IRPCServiceClient{
             array(
                 CURLOPT_CONNECTTIMEOUT => 15,
                 CURLOPT_TIMEOUT        => 240,
-                CURLOPT_HEADER         => "Content-Type: application/json"
+                CURLOPT_HEADER         => array('Content-Type: application/json')
             )
         );
     }

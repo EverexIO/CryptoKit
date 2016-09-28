@@ -319,7 +319,11 @@ class EthereumMongo implements ILayer
     ){
         $aResult = array();
         foreach($aWallets as $address){
-            $aResult[$address] = $this->getDB()->getAddressBalances($address);
+            $aBalances = $this->getDB()->getAddressBalances($address);
+            $aResult[$address] = array();
+            foreach($aBalances as $aBalance){
+                $aResult[$address] = array($aBalances['contract'] => $aBalances['balance']['c'][0]);
+            }
         }
         return $aResult;
     }
@@ -341,7 +345,7 @@ class EthereumMongo implements ILayer
                 $balance = $oEthRPC->exec('eth_getBalance', array($address, 'latest'));
                 if(FALSE !== $balance){
                     $balance = hexdec(str_replace('0x', '', $balance)) / pow(10, 18);
-                    $aResult[$address] = $balance;
+                    $aResult[$address] = array('ETH' => $balance);
                 }
             }
         }

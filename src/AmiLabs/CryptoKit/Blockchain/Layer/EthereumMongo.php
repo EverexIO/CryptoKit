@@ -322,7 +322,7 @@ class EthereumMongo implements ILayer
             $aBalances = $this->getDB()->getAddressBalances($address);
             $aResult[$address] = array();
             foreach($aBalances as $aBalance){
-                $aResult[$address] = array($aBalances['contract'] => $aBalances['balance']['c'][0]);
+                $aResult[$address] = array($aBalance['contract'] => $aBalance['balance']['c'][0]);
             }
         }
         return $aResult;

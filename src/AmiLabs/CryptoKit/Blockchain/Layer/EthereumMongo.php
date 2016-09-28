@@ -24,6 +24,7 @@ use UnexpectedValueException;
 use AmiLabs\CryptoKit\Blockchain\ILayer;
 use AmiLabs\CryptoKit\Blockchain\EthereumDB;
 use AmiLabs\CryptoKit\RPC;
+use AmiLabs\CryptoKit\RPCJSON;
 use Moontoast\Math\BigNumber;
 use AmiLabs\DevKit\Logger;
 use AmiLabs\DevKit\Registry;
@@ -329,9 +330,16 @@ class EthereumMongo implements ILayer
      */
     public function getFuelBalance($aAddresses, $logResult = FALSE){
         $aResult = array();
-        $aData = $this->getRPC()->exec('eth-service', 'getFuelBalance', $aAddresses, $logResult, FALSE);
-        if(is_array($aData)){
-            $aResult = $aData;
+        $geth = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
+        if(FALSE !== $geth){
+            $oEthRPC = new RPCJSON(array('address' => $geth));
+            foreach($aAddresses as $address){
+                $balance = $oEthRPC->exec('eth_getBalance', array($address, 'latest'));
+                if(FALSE !== $balance){
+                    $balance = hexdec(str_replace('0x', '', $balance)) / pow(10, 18);
+                    $aResult[$address] = $balance;
+                }
+            }
         }
         return $aResult;
     }

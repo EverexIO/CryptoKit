@@ -20,7 +20,6 @@ namespace AmiLabs\CryptoKit\Blockchain;
 
 use AmiLabs\DevKit\Cache;
 use AmiLabs\DevKit\Registry;
-use AmiLabs\CryptoKit\RPCJSON;
 
 /**
  * Class to interact with Ethereum parsed mongodb database.
@@ -71,9 +70,6 @@ class EthereumDB {
             if(FALSE === $this->aSettings['mongo']){
                 throw new \Exception("Mongo configuration not found");
             }
-        }
-        if(!isset($this->aSettings['ethereum'])){
-            $this->aSettings['ethereum'] = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
         }
         if(class_exists("MongoClient")){
             $oMongo = new \MongoClient($this->aSettings['mongo']['server']);
@@ -226,24 +222,6 @@ class EthereumDB {
             $result['tx']['confirmations'] = $this->getLastBlock() - $tx['blockNumber'];
         }
         return $result;
-    }
-
-    /**
-     * Return address ETH balance.
-     *
-     * @param string  $address  Address
-     * @return double
-     */
-    public function getBalance($address){
-        $balance = 0;
-        if(isset($this->aSettings['ethereum']) && $this->aSettings['ethereum']){
-            $oEthRPC = new RPCJSON(array('address' => $this->aSettings['ethereum']));
-            $balance = $oEthRPC->exec('eth_getBalance', array($address, 'latest'));
-            if(false !== $balance){
-                $balance = hexdec(str_replace('0x', '', $balance)) / pow(10, 18);
-            }
-        }
-        return $balance;
     }
 
     /**

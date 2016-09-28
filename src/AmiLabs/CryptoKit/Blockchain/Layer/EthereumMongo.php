@@ -317,7 +317,11 @@ class EthereumMongo implements ILayer
         array $aExtraParams = array(),
         $logResult = FALSE
     ){
-        return array();
+        $aResult = array();
+        foreach($aWallets as $address){
+            $aResult[$address] = $this->getDB()->getAddressBalances($address);
+        }
+        return $aResult;
     }
 
     /**

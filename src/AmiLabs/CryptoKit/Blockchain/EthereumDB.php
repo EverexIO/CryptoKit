@@ -551,17 +551,16 @@ class EthereumDB {
      * @return \Litipk\BigNumbers\Decimal
      */
     protected function getDecimalFromJSObject($aNumber, $aDecimal){
+        $ten = Decimal::create(10);
         if(isset($aNumber['s'])) $s = Decimal::create($aNumber['s']);
         else $s = Decimal::create(1);
-        if(isset($aNumber['c']) && sizeof($aNumber['c'])) $c = Decimal::create($aNumber['c'][0]);
+        if(isset($aNumber['c']) && sizeof($aNumber['c'])){
+            $c = Decimal::create($aNumber['c'][0])->div($ten->pow(Decimal::create(strlen($aNumber['c'][0]) - 1)))->mul($ten->pow(Decimal::create($aNumber['e'])));
+        }
         else $c = Decimal::create(0);
-
         if(isset($aDecimal['c']) && sizeof($aDecimal['c'])) $dec = Decimal::create($aDecimal['c'][0]);
         else $dec = Decimal::create(0);
-
-        $ten = Decimal::create(10);
         $res = $s->mul($c->div($ten->pow($dec)));
-
         return $res;
     }
 }

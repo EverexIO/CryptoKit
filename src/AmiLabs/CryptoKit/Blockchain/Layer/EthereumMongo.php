@@ -327,7 +327,7 @@ class EthereumMongo implements ILayer
                 foreach($aBalances as $aBalance){
                     foreach($aContracts as $token => $contract){
                         if(($aBalance['contract'] === $contract) && in_array($token, $aAssets)){
-                            $aResult[$address] = array($aBalance['contract'] => $this->parseBigint($aBalance['balance']));
+                            $aResult[$address][] = array($token => $this->parseBigint($aBalance['balance']));
                             break;
                         }
                     }
@@ -373,7 +373,7 @@ class EthereumMongo implements ILayer
     protected function parseBigint(array $bigint){
         $result = 0;
         if(isset($bigint['e']) && isset($bigint['s']) && isset($bigint['c']) && is_array([$bigint['c']])){
-            $result = ($bigint['c'][0] / pow(10, strlen($bigint['c'][0]) - 1)) * pow(10, $bigint['c']);
+            $result = ($bigint['c'][0] / pow(10, strlen($bigint['c'][0]) - 1)) * pow(10, $bigint['e']);
             if($bigint['s'] < 0){
                 $result = -$result;
             }

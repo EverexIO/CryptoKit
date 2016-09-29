@@ -317,32 +317,7 @@ class EthereumMongo implements ILayer
         array $aExtraParams = array(),
         $logResult = FALSE
     ){
-        $aResult = array();
-        $aEthereum = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
-        $aContracts = $aEthereum['contracts'];
-        if(FALSE !== $aEthereum){
-            foreach($aWallets as $address){
-                $aBalances = $this->getDB()->getAddressBalances($address);
-                $aResult[$address] = array();
-                foreach($aBalances as $aBalance){
-                    foreach($aContracts as $token => $contract){
-                        $aToken = $this->getDB()->getToken($contract);
-                        if($aToken && ($aBalance['contract'] === $contract) && in_array($token, $aAssets)){
-                            $balance = $this->parseBigint($aBalance['balance']);
-                            if(isset($aToken['decimals'])){
-                                $decimals = (int)$this->parseBigint($aToken['decimals']);
-                                if(($decimals > 1) && ($decimals < 20)){
-                                    $balance = round($balance / pow(10, $decimals), $decimals);
-                                }
-                            }
-                            $aResult[$address][$token] = $balance;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        return $aResult;
+        return $this->getDB()->getCurrentAddressBalance($aAssets, $aWallets);;
     }
 
     /**
@@ -357,7 +332,7 @@ class EthereumMongo implements ILayer
         array $aAddress = array()
     ){
 
-        return $this->getDB()->getCurrentAddressBalance($aAssets, $aAddress);
+        return $this->getBalances($aAssets, $aAddress);
     }
 
     /**
@@ -406,25 +381,6 @@ class EthereumMongo implements ILayer
             }
         }
         return $aResult;
-    }
-
-    /**
-     * Parses Javascript Bigint format into a float.
-     *
-     * @param array $bigint
-     * @return float
-     */
-    protected function parseBigint(array $bigint){
-        $result = 0;
-        if(isset($bigint['e']) && isset($bigint['s']) && isset($bigint['c']) && is_array([$bigint['c']])){
-            $result = ($bigint['c'][0] / pow(10, strlen($bigint['c'][0]) - 1)) * pow(10, $bigint['e']);
-            if($bigint['s'] < 0){
-                $result = -$result;
-            }
-        }else{
-            // @todo: Not a Bigint
-        }
-        return $result;
     }
 
     /**

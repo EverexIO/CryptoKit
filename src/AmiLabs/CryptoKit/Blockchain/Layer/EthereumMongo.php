@@ -368,6 +368,7 @@ class EthereumMongo implements ILayer
      * @param  int    $limit      Transactions number
      * @param  string $order      Sort order
      * @param  string $direction  Sort direction
+     * @param  array  $aTxTypes   Transactions types
      * @return array
      */
     public function getAddressHistory(
@@ -375,10 +376,11 @@ class EthereumMongo implements ILayer
         $address,
         $limit,
         $order,
-        $direction
+        $direction,
+        array $aTxTypes = array()
     ){
 
-        return $this->getDB()->getAddressHistory($aAssets, $address, $limit, $order, $direction);
+        return $this->getDB()->getAddressHistory($aAssets, $address, $limit, $order, $direction, $aTxTypes);
     }
 
     /**

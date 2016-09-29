@@ -222,8 +222,8 @@ class EthereumDB {
         }else{
             $result = $oCache->load();
         }
-        if(is_array($result) && is_array($tx)){
-            $result['tx']['confirmations'] = $this->getLastBlock() - $tx['blockNumber'];
+        if(is_array($result) && is_array($result['tx'])){
+            $result['tx']['confirmations'] = $this->getLastBlock() - $result['tx']['blockNumber'];
         }
         return $result;
     }
@@ -435,6 +435,7 @@ class EthereumDB {
      * @param  int    $limit      Transactions number
      * @param  string $order      Sort order
      * @param  string $direction  Sort direction
+     * @param  array  $aTxTypes   Transactions types
      * @return array
      */
     public function getAddressHistory(
@@ -442,7 +443,8 @@ class EthereumDB {
         $address,
         $limit,
         $order,
-        $direction
+        $direction,
+        array $aTxTypes = array()
     ){
         $aConfig = $this->aSettings['ethereum'];
 
@@ -466,23 +468,34 @@ class EthereumDB {
 
             $balance = Decimal::create(0);
             foreach($cursor as $transfer){
-                //unset($transfer["_id"]);
+                $aTxDetails = $this->getTransactionDetails($transfer['transactionHash']);
+                $txAddress = $transfer['to'];
+                $txOppAddress = $transfer['from'];
                 if($transfer['from'] == $address){
                     $transfer['value']['s'] = -1;
+                    $txAddress = $transfer['from'];
+                    $txOppAddress = $transfer['to'];
                 }
 
-                $curBalance = $this->getDecimalFromJSObject($transfer['value'], $aContractInfo[$asset]['decimals']);
-                $balance = $balance->add($curBalance);
+                $txQuantity = $this->getDecimalFromJSObject($transfer['value'], $aContractInfo[$asset]['decimals']);
+                $balance = $balance->add($txQuantity);
 
                 $aResult[] = array(
                     'date' => date('Y-m-d', $transfer['timestamp']),
+                    'block' => $aTxDetails['tx']['blockNumber'],
+                    'confirmations' => $aTxDetails['tx']['confirmations'],
+                    'tx_hash' => $transfer['transactionHash'],
+                    'address' => $txAddress,
+                    'opposite_address' => $txOppAddress,
+                    'difference' => $txQuantity->__toString(),
                     'asset' => $asset,
-                    'balance' => $balance->__toString()
+                    'balance' => $balance->__toString(),
+                    'failedReason' => false
                 );
             }
         }
 
-        return $aResult;
+        return ($direction == 'desc') ? array_reverse($aResult) : $aResult;
     }
 
     /**

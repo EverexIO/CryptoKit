@@ -332,10 +332,10 @@ class EthereumMongo implements ILayer
                             if(isset($aToken['decimals'])){
                                 $decimals = $this->parseBigint($aToken['decimals']);
                                 if(($decimals > 1) && ($decimals < 20)){
-                                    $balance = $balance / pow(10, (int)$aToken['decimals']);
+                                    $balance = $balance / pow(10, $decimals);
                                 }
                             }
-                            $aResult[$address][] = array($token => $this->parseBigint($aBalance['balance']));
+                            $aResult[$address][] = array($token => $balance);
                             break;
                         }
                     }

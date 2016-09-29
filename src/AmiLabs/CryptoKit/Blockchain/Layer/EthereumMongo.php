@@ -318,11 +318,20 @@ class EthereumMongo implements ILayer
         $logResult = FALSE
     ){
         $aResult = array();
-        foreach($aWallets as $address){
-            $aBalances = $this->getDB()->getAddressBalances($address);
-            $aResult[$address] = array();
-            foreach($aBalances as $aBalance){
-                $aResult[$address] = array($aBalance['contract'] => $aBalance['balance']['c'][0]);
+        $aEthereum = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
+        $aContracts = $aEthereum['contracts'];
+        if(FALSE !== $aEthereum){
+            foreach($aWallets as $address){
+                $aBalances = $this->getDB()->getAddressBalances($address);
+                $aResult[$address] = array();
+                foreach($aBalances as $aBalance){
+                    foreach($aContracts as $token => $contract){
+                        if(($aBalance['contract'] === $contract) && in_array($token, $aAssets)){
+                            $aResult[$address] = array($aBalance['contract'] => $this->parseBigint($aBalance['balance']));
+                            break;
+                        }
+                    }
+                }
             }
         }
         return $aResult;
@@ -338,9 +347,12 @@ class EthereumMongo implements ILayer
      */
     public function getFuelBalance($aAddresses, $logResult = FALSE){
         $aResult = array();
-        $geth = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
-        if(FALSE !== $geth){
-            $oEthRPC = new RPCJSON(array('address' => $geth));
+        $aEthereum = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
+        if(FALSE !== $aEthereum){
+            if(!isset($aEthereum['service'])){
+                throw new Exception('Ethereum service address not set');
+            }
+            $oEthRPC = new RPCJSON(array('address' => $aEthereum['service']));
             foreach($aAddresses as $address){
                 $balance = $oEthRPC->exec('eth_getBalance', array($address, 'latest'));
                 if(FALSE !== $balance){
@@ -350,6 +362,25 @@ class EthereumMongo implements ILayer
             }
         }
         return $aResult;
+    }
+
+    /**
+     * Parses Javascript Bigint format into a float.
+     *
+     * @param array $bigint
+     * @return float
+     */
+    protected function parseBigint(array $bigint){
+        $result = 0;
+        if(isset($bigint['e']) && isset($bigint['s']) && isset($bigint['c']) && is_array([$bigint['c']])){
+            $result = ($bigint['c'][0] / pow(10, strlen($bigint['c'][0]) - 1)) * pow(10, $bigint['c']);
+            if($bigint['s'] < 0){
+                $result = -$result;
+            }
+        }else{
+            // @todo: Not a Bigint
+        }
+        return $result;
     }
 
     /**

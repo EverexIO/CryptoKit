@@ -330,7 +330,7 @@ class EthereumMongo implements ILayer
                         if($aToken && ($aBalance['contract'] === $contract) && in_array($token, $aAssets)){
                             $balance = $this->parseBigint($aBalance['balance']);
                             if(isset($aToken['decimals'])){
-                                $decimals = $this->parseBigint($aToken['decimals']);
+                                $decimals = (int)$this->parseBigint($aToken['decimals']);
                                 if(($decimals > 1) && ($decimals < 20)){
                                     $balance = round($balance / pow(10, $decimals), $decimals);
                                 }

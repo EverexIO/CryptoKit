@@ -121,7 +121,7 @@ class EthereumMongo implements ILayer
      * @return string
      */
     public function getBalancesServiceName(){
-        return 'eth-service';
+        return FALSE;
     }
 
     /**

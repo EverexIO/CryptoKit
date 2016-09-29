@@ -25,7 +25,8 @@
         "php": ">=5.3.1",
         "artemko7v/php-op_return": "dev-master",
         "everexio/JSON-RPC": "dev-develop",
-        "moontoast/math": "*"
+        "moontoast/math": "*",
+        "litipk/php-bignumbers": "*"
     },
     "autoload": {
         "psr-0": {"AmiLabs\\CryptoKit": "src/"}

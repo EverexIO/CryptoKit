@@ -20,6 +20,7 @@ namespace AmiLabs\CryptoKit\Blockchain;
 
 use AmiLabs\DevKit\Cache;
 use AmiLabs\DevKit\Registry;
+use \Litipk\BigNumbers\Decimal;
 
 /**
  * Class to interact with Ethereum parsed mongodb database.
@@ -70,6 +71,9 @@ class EthereumDB {
             if(FALSE === $this->aSettings['mongo']){
                 throw new \Exception("Mongo configuration not found");
             }
+        }
+        if(!isset($this->aSettings['ethereum'])){
+            $this->aSettings['ethereum'] = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
         }
         if(class_exists("MongoClient")){
             $oMongo = new \MongoClient($this->aSettings['mongo']['server']);
@@ -387,6 +391,101 @@ class EthereumDB {
     }
 
     /**
+     * Returns current balances.
+     *
+     * @param  array $aAssets   List of assets
+     * @param  array $aAddress  Addresses list
+     * @return array
+     */
+    public function getCurrentAddressBalance(
+        array $aAssets = array(),
+        array $aAddress = array()
+    ){
+        $aConfig = $this->aSettings['ethereum'];
+
+        $aContractInfo = array();
+        if(isset($aConfig['contracts'])){
+            foreach($aConfig['contracts'] as $asset => $address){
+                $aContractInfo[$asset] = $this->getToken($address);
+            }
+        }
+
+        $aResult = array();
+        foreach($aAssets as $asset){
+            foreach($aAddress as $address){
+                if(!isset($aContractInfo[$asset])) continue;
+                $cursor = $this->dbs['balances']->find(array('address' => $address, 'contract' => $aContractInfo[$asset]['address']));
+                $result = $cursor->hasNext() ? $cursor->getNext() : false;
+                if($result){
+                    $aResult[$address][$asset] = array(
+                        'balance' => $this->getDecimalFromJSObject($result['balance'], $aContractInfo[$asset]['decimals'])->__toString()
+                    );
+                }
+            }
+        }
+
+        return $aResult;
+    }
+
+    /**
+     * Returns address history.
+     *
+     * @param  array  $aAssets    List of assets
+     * @param  string $address    Addresse
+     * @param  int    $limit      Transactions number
+     * @param  string $order      Sort order
+     * @param  string $direction  Sort direction
+     * @return array
+     */
+    public function getAddressHistory(
+        array $aAssets = array(),
+        $address,
+        $limit,
+        $order,
+        $direction
+    ){
+        $aConfig = $this->aSettings['ethereum'];
+
+        $aContractInfo = array();
+        if(isset($aConfig['contracts'])){
+            foreach($aConfig['contracts'] as $asset => $contract){
+                $aContractInfo[$asset] = $this->getToken($contract);
+            }
+        }
+
+        $aResult = array();
+        foreach($aAssets as $asset){
+            if(!isset($aContractInfo[$asset])) continue;
+
+            $cursor = $this->dbs['transfers']
+                ->find(array(
+                    'contract' => $aContractInfo[$asset]['address'],
+                    '$or' => array(array("from" => $address), array("to" => $address))))
+                    ->sort(array("timestamp" => 1))
+                    ->limit($limit);
+
+            $balance = Decimal::create(0);
+            foreach($cursor as $transfer){
+                //unset($transfer["_id"]);
+                if($transfer['from'] == $address){
+                    $transfer['value']['s'] = -1;
+                }
+
+                $curBalance = $this->getDecimalFromJSObject($transfer['value'], $aContractInfo[$asset]['decimals']);
+                $balance = $balance->add($curBalance);
+
+                $aResult[] = array(
+                    'date' => date('Y-m-d', $transfer['timestamp']),
+                    'asset' => $asset,
+                    'balance' => $balance->__toString()
+                );
+            }
+        }
+
+        return $aResult;
+    }
+
+    /**
      * Returns list of transfers made by specified address.
      *
      * @param string $address  Address
@@ -429,5 +528,27 @@ class EthereumDB {
             $fetches++;
         }
         return $result;
+    }
+
+    /**
+     * Returns balance string value of the big number object.
+     *
+     * @param array $aNumber   Number in js object format
+     * @param array $aDecimal  Number of decimal in js object format
+     * @return \Litipk\BigNumbers\Decimal
+     */
+    protected function getDecimalFromJSObject($aNumber, $aDecimal){
+        if(isset($aNumber['s'])) $s = Decimal::create($aNumber['s']);
+        else $s = Decimal::create(1);
+        if(isset($aNumber['c']) && sizeof($aNumber['c'])) $c = Decimal::create($aNumber['c'][0]);
+        else $c = Decimal::create(0);
+
+        if(isset($aDecimal['c']) && sizeof($aDecimal['c'])) $dec = Decimal::create($aDecimal['c'][0]);
+        else $dec = Decimal::create(0);
+
+        $ten = Decimal::create(10);
+        $res = $s->mul($c->div($ten->pow($dec)));
+
+        return $res;
     }
 }

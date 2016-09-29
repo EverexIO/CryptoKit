@@ -346,6 +346,42 @@ class EthereumMongo implements ILayer
     }
 
     /**
+     * Returns current balances.
+     *
+     * @param  array $aAssets   List of assets
+     * @param  array $aAddress  Addresses list
+     * @return array
+     */
+    public function getCurrentAddressBalance(
+        array $aAssets = array(),
+        array $aAddress = array()
+    ){
+
+        return $this->getDB()->getCurrentAddressBalance($aAssets, $aAddress);
+    }
+
+    /**
+     * Returns address history.
+     *
+     * @param  array  $aAssets    List of assets
+     * @param  string $address    Address
+     * @param  int    $limit      Transactions number
+     * @param  string $order      Sort order
+     * @param  string $direction  Sort direction
+     * @return array
+     */
+    public function getAddressHistory(
+        array $aAssets = array(),
+        $address,
+        $limit,
+        $order,
+        $direction
+    ){
+
+        return $this->getDB()->getAddressHistory($aAssets, $address, $limit, $order, $direction);
+    }
+
+    /**
      * Returns addresse balances of blockchain native coin (BTC, ETH, etc).
      *
      * @param string $aAddresses    Addresses list

@@ -539,14 +539,24 @@ class EthereumDB {
      */
     protected function getDecimalFromJSObject($aNumber, $aDecimal){
         $ten = Decimal::create(10);
-        if(isset($aNumber['s'])) $s = Decimal::create($aNumber['s']);
-        else $s = Decimal::create(1);
-        if(isset($aNumber['c']) && sizeof($aNumber['c'])){
-            $c = Decimal::create($aNumber['c'][0])->div($ten->pow(Decimal::create(strlen($aNumber['c'][0]) - 1)))->mul($ten->pow(Decimal::create($aNumber['e'])));
+        $s   = Decimal::create(1);
+        $c   = Decimal::create(0);
+        $e   = Decimal::create(0);
+        $dec = Decimal::create(0);
+
+        if(isset($aNumber['s'])){
+            $s = Decimal::create($aNumber['s']);
         }
-        else $c = Decimal::create(0);
-        if(isset($aDecimal['c']) && sizeof($aDecimal['c'])) $dec = Decimal::create($aDecimal['c'][0]);
-        else $dec = Decimal::create(0);
+        if(isset($aNumber['e'])){
+            $e = Decimal::create($aNumber['e']);
+        }
+        if(isset($aNumber['c']) && !empty($aNumber['c'])){
+            $k = Decimal::create(strlen($aNumber['c'][0]) - 1);
+            $c = Decimal::create($aNumber['c'][0])->mul($ten->pow($e->sub($k)));
+        }
+        if(isset($aDecimal['c']) && sizeof($aDecimal['c'])){
+            $dec = Decimal::create($aDecimal['c'][0]);
+        }
         $res = $s->mul($c->div($ten->pow($dec)));
         return $res;
     }

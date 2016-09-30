@@ -60,7 +60,7 @@ class BlockchainIO{
         }elseif(FALSE !== $cfgLayer){
             $layerName = $cfgLayer;
         }else{
-            $layer = 'Counterparty';
+            $layerName = 'Counterparty';
         }
         $class = "\\AmiLabs\\CryptoKit\\Blockchain\\Layer\\" . $layerName;
         return new $class;

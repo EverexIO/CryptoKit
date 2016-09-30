@@ -357,6 +357,21 @@ class EthereumDB {
     }
 
     /**
+     * Returns number of contract transactions.
+     *
+     * @param string $address  Contract address
+     * @return int
+     */
+    public function getContractTransactionsNum($address){
+        $cursor = $this->dbs['tokens']->find(array("address" => $address));
+        $result = $cursor->hasNext() ? $cursor->getNext() : false;
+        if($result){
+            return (int)$result['txsCount'];
+        }
+        return 0;
+    }
+
+    /**
      * Returns last known mined block number.
      *
      * @return int

@@ -412,7 +412,7 @@ class EthereumDB {
      * @param  array $aAddress  Addresses list
      * @return array
      */
-    public function getCurrentAddressBalance(
+    public function getAddressesBalances(
         array $aAssets = array(),
         array $aAddress = array()
     ){

@@ -38,6 +38,14 @@ class EthereumMongo implements ILayer
      */
     protected $oRPC;
 
+
+    /**
+     * CryptoKit RPC client
+     *
+     * @var \AmiLabs\CryptoKit\RPC
+     */
+    protected $oEthRPC;
+
     /**
      * EthereumDB object
      *
@@ -268,7 +276,9 @@ class EthereumMongo implements ILayer
      * @todo   Cover by unit tests
      */
     public function sendRawTx($rawData, $logResult = TRUE){
-        return $this->getRPC()->exec('eth-service', 'sendTx', array($rawData), $logResult);
+        $rawData = strtolower($rawData);
+        // @todo: check format, add 0x if not found
+        return $this->getEthRPC()->exec('eth_sendRawTransaction', array($rawData));
     }
 
     /**
@@ -289,15 +299,14 @@ class EthereumMongo implements ILayer
      * Returns number of transaction confirmations.
      *
      * @param string $txHash     Transaction hash
-     * @param bool $onlyHex      Return only tx raw hex if set to true
      * @param bool $logResult    Flag specifying to log result
      * @return mixed
      */
     public function getTxConfirmations($txHash, $logResult = FALSE){
         $result = 0;
-        $aTxData = $this->getDB()->getTransactionDetails($txHash);
-        if(isset($aTxData['tx'])){
-            $result = (int)$aTxData['tx']['confirmations'];
+        $aTxData = $this->getDB()->getTransaction($txHash);
+        if($aTxData){
+            $result = $this->getDB()->getLastBlock() - (int)$aTxData['blockNumber'];
         }
         return $result;
     }
@@ -317,22 +326,7 @@ class EthereumMongo implements ILayer
         array $aExtraParams = array(),
         $logResult = FALSE
     ){
-        return $this->getDB()->getCurrentAddressBalance($aAssets, $aWallets);;
-    }
-
-    /**
-     * Returns current balances.
-     *
-     * @param  array $aAssets   List of assets
-     * @param  array $aAddress  Addresses list
-     * @return array
-     */
-    public function getCurrentAddressBalance(
-        array $aAssets = array(),
-        array $aAddress = array()
-    ){
-
-        return $this->getBalances($aAssets, $aAddress);
+        return $this->getDB()->getAddressesBalances($aAssets, $aWallets);;
     }
 
     /**
@@ -368,18 +362,11 @@ class EthereumMongo implements ILayer
      */
     public function getFuelBalance($aAddresses, $logResult = FALSE){
         $aResult = array();
-        $aEthereum = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
-        if(FALSE !== $aEthereum){
-            if(!isset($aEthereum['service'])){
-                throw new Exception('Ethereum service address not set');
-            }
-            $oEthRPC = new RPCJSON(array('address' => $aEthereum['service']));
-            foreach($aAddresses as $address){
-                $balance = $oEthRPC->exec('eth_getBalance', array($address, 'latest'));
-                if(FALSE !== $balance){
-                    $balance = hexdec(str_replace('0x', '', $balance)) / pow(10, 18);
-                    $aResult[$address] = array('ETH' => $balance);
-                }
+        foreach($aAddresses as $address){
+            $balance = $this->getEthRPC()->exec('eth_getBalance', array($address, 'latest'));
+            if(FALSE !== $balance){
+                $balance = hexdec(str_replace('0x', '', $balance)) / pow(10, 18);
+                $aResult[$address] = array('ETH' => $balance);
             }
         }
         return $aResult;
@@ -407,6 +394,22 @@ class EthereumMongo implements ILayer
             $this->oRPC = new RPC;
         }
         return $this->oRPC;
+    }
+
+    /**
+     * Creates new RPC object, or uses existing one.
+     *
+     * @return \AmiLabs\CryptoKit\RPC
+     */
+    protected function getEthRPC(){
+        if(is_null($this->oEthRPC)){
+            $aEthereum = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
+            if(FALSE === $aEthereum || !isset($aEthereum['service'])){
+                throw new Exception('Ethereum service address not set');
+            }
+            $this->oEthRPC = new RPCJSON(array('address' => $aEthereum['service']));
+        }
+        return $this->oEthRPC;
     }
 
     /**

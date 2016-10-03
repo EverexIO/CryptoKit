@@ -24,10 +24,6 @@ use UnexpectedValueException;
 use AmiLabs\CryptoKit\Blockchain\ILayer;
 use AmiLabs\CryptoKit\Blockchain\EthereumDB;
 use AmiLabs\CryptoKit\RPC;
-use AmiLabs\CryptoKit\RPCJSON;
-use Moontoast\Math\BigNumber;
-use AmiLabs\DevKit\Logger;
-use AmiLabs\DevKit\Registry;
 
 class EthereumMongo implements ILayer
 {
@@ -37,14 +33,6 @@ class EthereumMongo implements ILayer
      * @var \AmiLabs\CryptoKit\RPC
      */
     protected $oRPC;
-
-
-    /**
-     * CryptoKit RPC client
-     *
-     * @var \AmiLabs\CryptoKit\RPC
-     */
-    protected $oEthRPC;
 
     /**
      * EthereumDB object
@@ -91,21 +79,6 @@ class EthereumMongo implements ILayer
     public function checkServerConfig(array $aConfig)
     {
         $result = TRUE;
-
-        //$this->aConfig = $this->getConfig()->get('MRService', array());
-        /*
-        $oLogger = Logger::get('check-eth-servers');
-        if(isset($aConfig['eth-service'])){
-            $address = $aConfig['eth-service']['address'];
-            $aContextOptions = array('http' => array('timeout' => 5), 'ssl'  => array('verify_peer' => FALSE, 'verify_peer_name' => FALSE));
-            $state = @file_get_contents($address, FALSE, stream_context_create($aContextOptions));
-            $result = ($state && (substr($state, 0, 1) == '{') && ($aState = json_decode($state, TRUE)) && is_array($aState) && isset($aState['counterparty-server']) && ('OK' == $aState['counterparty-server']));
-            $oLogger->log($result ? ('OK: ' . $address . ' is UP and RUNNING, using as primary') : ('ERROR: ' . $address . ' is DOWN, skipping'));
-        }else{
-            // Can not check state without Counterblock
-            $oLogger->log('SKIP: No counterblock information in RPC config');
-        }
-        */
         return $result;
     }
 
@@ -278,7 +251,7 @@ class EthereumMongo implements ILayer
     public function sendRawTx($rawData, $logResult = TRUE){
         $rawData = strtolower($rawData);
         // @todo: check format, add 0x if not found
-        return $this->getEthRPC()->exec('eth_sendRawTransaction', array($rawData));
+        return $this->getRPC()->exec('geth', 'eth_sendRawTransaction', array($rawData), $logResult, FALSE);
     }
 
     /**
@@ -363,7 +336,7 @@ class EthereumMongo implements ILayer
     public function getFuelBalance($aAddresses, $logResult = FALSE){
         $aResult = array();
         foreach($aAddresses as $address){
-            $balance = $this->getEthRPC()->exec('eth_getBalance', array($address, 'latest'));
+            $balance = $this->getRPC()->exec('geth', 'eth_getBalance', array($address, 'latest'), $logResult, FALSE);
             if(FALSE !== $balance){
                 $balance = hexdec(str_replace('0x', '', $balance)) / pow(10, 18);
                 $aResult[$address] = array('ETH' => $balance);
@@ -394,22 +367,6 @@ class EthereumMongo implements ILayer
             $this->oRPC = new RPC;
         }
         return $this->oRPC;
-    }
-
-    /**
-     * Creates new RPC object, or uses existing one.
-     *
-     * @return \AmiLabs\CryptoKit\RPC
-     */
-    protected function getEthRPC(){
-        if(is_null($this->oEthRPC)){
-            $aEthereum = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
-            if(FALSE === $aEthereum || !isset($aEthereum['service'])){
-                throw new Exception('Ethereum service address not set');
-            }
-            $this->oEthRPC = new RPCJSON(array('address' => $aEthereum['service']));
-        }
-        return $this->oEthRPC;
     }
 
     /**

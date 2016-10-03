@@ -19,6 +19,7 @@
 namespace AmiLabs\CryptoKit\Blockchain;
 
 use AmiLabs\DevKit\Cache;
+use AmiLabs\DevKit\Logger;
 use AmiLabs\DevKit\Registry;
 use \Litipk\BigNumbers\Decimal;
 
@@ -60,11 +61,20 @@ class EthereumDB {
     protected $lastBlock;
 
     /**
+     * Logger object
+     *
+     * @var \AmiLabs\DevKit\Logger
+     */
+    protected $oLogger;
+
+    /**
      * Constructor.
      *
      * @throws \Exception
      */
     protected function __construct(array $aConfig){
+        $this->oLogger = Logger::get('ethereum-mongo', FALSE, TRUE);
+
         $this->aSettings = $aConfig;
         if(!isset($this->aSettings['mongo'])){
             $this->aSettings['mongo'] = Registry::useStorage('CFG')->get('CryptoKit/mongo', FALSE);
@@ -392,17 +402,15 @@ class EthereumDB {
      * @param bool $withZero   Returns zero balances if true
      * @return array
      */
-    public function getAddressBalances($address, $withZero = true){
-        $cursor = $this->dbs['balances']->find(array("address" => $address));
-        $result = array();
-        $fetches = 0;
-        foreach($cursor as $balance){
-            unset($balance["_id"]);
-            // @todo: $withZero flag implementation
-            $result[] = $balance;
-            $fetches++;
+    public function getAddressBalances($address, $withZero = TRUE, $log = FALSE){
+        $aConfig = $this->aSettings['ethereum'];
+        $aAssets = isset($aConfig['contracts']) ? array_keys($aConfig['contracts']) : array();
+        $aResult = array();
+        // @todo: $withZero flag implementation
+        if(!empty($aAssets)){
+            $aResult = $this->getAddressesBalances($aAssets, array($address), $log);
         }
-        return $result;
+        return $aResult;
     }
 
     /**
@@ -414,7 +422,8 @@ class EthereumDB {
      */
     public function getAddressesBalances(
         array $aAssets = array(),
-        array $aAddress = array()
+        array $aAddress = array(),
+        $log = FALSE
     ){
         $aConfig = $this->aSettings['ethereum'];
 
@@ -438,7 +447,9 @@ class EthereumDB {
                 }
             }
         }
-
+        if($log){
+            $this->oLogger->log('getAddressesBalances: ' . var_export($aAddress, TRUE) . "\n" . var_export($aResult, TRUE));
+        }
         return $aResult;
     }
 
@@ -509,8 +520,9 @@ class EthereumDB {
                 );
             }
         }
-
-        return ($direction == 'desc') ? array_reverse($aResult) : $aResult;
+        $aResult = ($direction == 'desc') ? array_reverse($aResult) : $aResult;
+        $this->oLogger->log('getAddressHistory [' . $addreess . "]: " . var_export($aResult, TRUE));
+        return $aResult;
     }
 
     /**

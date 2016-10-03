@@ -521,7 +521,7 @@ class EthereumDB {
             }
         }
         $aResult = ($direction == 'desc') ? array_reverse($aResult) : $aResult;
-        $this->oLogger->log('getAddressHistory [' . $addreess . "]: " . var_export($aResult, TRUE));
+        $this->oLogger->log('getAddressHistory [' . $address . "]: " . var_export($aResult, TRUE));
         return $aResult;
     }
 

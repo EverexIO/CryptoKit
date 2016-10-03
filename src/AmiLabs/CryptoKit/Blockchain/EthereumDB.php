@@ -438,14 +438,8 @@ class EthereumDB {
         foreach($aAssets as $asset){
             foreach($aAddress as $address){
                 if(!isset($aContractInfo[$asset])) continue;
-                if($log){
-                    $this->oLogger->log('getAddressesBalances: fetching balance of ' . $address . ' asset ' . $asset . ' (' . $aContractInfo[$asset]['address'] . ')');
-                }
                 $cursor = $this->dbs['balances']->find(array('address' => $address, 'contract' => $aContractInfo[$asset]['address']));
                 $result = $cursor->hasNext() ? $cursor->getNext() : false;
-                if($log){
-                    $this->oLogger->log('getAddressesBalances: fetch result:  ' . var_export($result, TRUE));
-                }
                 if($result){
                     $aResult[$address][$asset] = array(
                         'balance' => $this->getDecimalFromJSObject($result['balance'], $aContractInfo[$asset]['decimals'])->__toString()

@@ -122,7 +122,7 @@ class RPC {
                     }
                     if($checkServices){
                         // Check if service is working
-                        if(BlockchainIO::getInstance()->checkServerConfig($aConfig)){
+                        if(true || BlockchainIO::getInstance()->checkServerConfig($aConfig)){
                             $oCache->save($aConfig);
                             break;
                         }

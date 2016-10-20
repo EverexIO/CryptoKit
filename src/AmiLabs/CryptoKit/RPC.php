@@ -98,7 +98,8 @@ class RPC {
                 $aConfig = $oCache->load();
                 if($checkServices){
                     // Check if service is working
-                    if(BlockchainIO::getInstance()->checkServerConfig($aConfig)){
+                    // @todo: Ethereum check
+                    if(true || BlockchainIO::getInstance()->checkServerConfig($aConfig)){
                         $needToSearchConfig = false;
                     }else{
                         $oCache->clear();

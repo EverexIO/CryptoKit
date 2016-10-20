@@ -63,6 +63,7 @@ class RPC {
             $this->loadConfiguration($checkServices);
         }
         foreach(self::$aConfig as $daemon => $aDaemonConfig){
+            $aDaemonConfig['driver'] = 'json'; // Temporary
             if(strpos($aDaemonConfig['driver'], '\\') !== FALSE){
                 $className = $aDaemonConfig['driver'];
             }else{

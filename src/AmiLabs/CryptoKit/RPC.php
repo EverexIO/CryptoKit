@@ -92,6 +92,8 @@ class RPC {
         }
         $aConfigs = Registry::useStorage('CFG')->get($servicesCfgKey, FALSE);
         if(is_array($aConfigs)){
+            $aConfig = $aConfigs[0];
+            /*
             $needToSearchConfig = true;
             $oCache = Cache::get('rpc-service' . $testnet);
             if($oCache->exists() && !$oCache->clearIfOlderThan(self::CHECK_INTERVAL)){
@@ -131,6 +133,7 @@ class RPC {
                     }
                 }
             }
+            */
         }
         if(!is_array($aConfig)){
             throw new \Exception('Blockchain RPC configuration missing');

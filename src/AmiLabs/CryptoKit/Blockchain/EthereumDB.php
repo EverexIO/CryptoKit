@@ -499,7 +499,7 @@ class EthereumDB {
                 $txOppAddress = $transfer['from'];
                 $txQuantity = $this->getDecimalFromJSObject($transfer['value'], $aContractInfo[$asset]['decimals']);
                 if($transfer['from'] == $address){
-                    $txQuantity->mul(Decimal::create(-1));
+                    $txQuantity = $txQuantity->mul(Decimal::create(-1));
                     $txAddress = $transfer['from'];
                     $txOppAddress = $transfer['to'];
                 }

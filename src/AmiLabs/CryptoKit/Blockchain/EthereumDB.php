@@ -497,13 +497,13 @@ class EthereumDB {
                 $aTxDetails = $this->getTransactionDetails($transfer['transactionHash']);
                 $txAddress = $transfer['to'];
                 $txOppAddress = $transfer['from'];
+                $txQuantity = $this->getDecimalFromJSObject($transfer['value'], $aContractInfo[$asset]['decimals']);
                 if($transfer['from'] == $address){
-                    $transfer['value']['s'] = -1;
+                    $txQuantity->mul(Decimal::create(-1));
                     $txAddress = $transfer['from'];
                     $txOppAddress = $transfer['to'];
                 }
 
-                $txQuantity = $this->getDecimalFromJSObject($transfer['value'], $aContractInfo[$asset]['decimals']);
                 $balance = $balance->add($txQuantity);
 
                 $aResult[] = array(

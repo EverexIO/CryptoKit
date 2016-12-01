@@ -133,6 +133,16 @@ class EthereumMongo implements ILayer
     }
 
     /**
+     * Returns last block number.
+     *
+     * @return mixed
+     */
+    public function getLastBlock()
+    {
+        return $this->getDB()->getLastBlock();
+    }
+
+    /**
      * Returns transaction raw hex with (or without) extended info.
      *
      * @param string $txHash     Transaction hash

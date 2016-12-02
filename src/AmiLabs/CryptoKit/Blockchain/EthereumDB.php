@@ -93,8 +93,7 @@ class EthereumDB {
                 'blocks'       => $oDB->{"everex.eth.blocks"},
                 'contracts'    => $oDB->{"everex.eth.contracts"},
                 'tokens'       => $oDB->{"everex.erc20.contracts"},
-                'transfers'    => $oDB->{"everex.erc20.transfers"},
-                'issuances'    => $oDB->{"everex.erc20.issuances"},
+                'operations'   => $oDB->{"everex.erc20.operations"},
                 'balances'     => $oDB->{"everex.erc20.balances"},
             );
         }else{
@@ -256,6 +255,29 @@ class EthereumDB {
         }
         return $result;
     }
+    /**
+     * Returns list of transfers in specified transaction.
+     *
+     * @param string  $tx  Transaction hash
+     * @return array
+     */
+    public function getOperations($tx, $type = FALSE){
+        // evxProfiler::checkpoint('getOperations START [hash=' . $tx . ']');
+        $search = array("transactionHash" => $tx);
+        if($type){
+            $search['type'] = $type;
+        }
+        $cursor = $this->dbs['operations']->find($search);
+        $result = array();
+        while($cursor->hasNext()){
+            $res = $cursor->getNext();
+            unset($res["_id"]);
+            $res["success"] = true;
+            $result[] = $res;
+        }
+        // evxProfiler::checkpoint('getOperations FINISH [hash=' . $tx . ']');
+        return $result;
+    }
 
     /**
      * Returns list of transfers in specified transaction.
@@ -264,16 +286,7 @@ class EthereumDB {
      * @return array
      */
     public function getTransfers($tx){
-        $cursor = $this->dbs['transfers']->find(array("transactionHash" => $tx));
-        $result = array();
-        while($cursor->hasNext()){
-            $res = $cursor->getNext();
-            unset($res["_id"]);
-            $res["success"] = true;
-            $res["type"] = "transfer";
-            $result[] = $res;
-        }
-        return $result;
+        return $this->getOperations($tx, 'transfer');
     }
 
     /**
@@ -283,18 +296,8 @@ class EthereumDB {
      * @return array
      */
     public function getIssuances($tx){
-        $cursor = $this->dbs['issuances']->find(array("transactionHash" => $tx));
-        $result = array();
-        while($cursor->hasNext()){
-            $res = $cursor->getNext();
-            unset($res["_id"]);
-            $res["success"] = true;
-            $res["type"] = "issuance";
-            $result[] = $res;
-        }
-        return $result;
+        return $this->getOperations($tx, 'issuance');
     }
-
     /**
      * Returns list of known tokens.
      *
@@ -352,7 +355,7 @@ class EthereumDB {
      * @return array
      */
     public function getContractTransfers($address, $limit = 10){
-        return $this->getContractOperation('transfers', $address, $limit);
+        return $this->getContractOperation('transfer', $address, $limit);
     }
 
     /**
@@ -363,7 +366,7 @@ class EthereumDB {
      * @return array
      */
     public function getContractIssuances($address, $limit = 10){
-        return $this->getContractOperation('issuances', $address, $limit);
+        return $this->getContractOperation('issuance', $address, $limit);
     }
 
     /**
@@ -485,9 +488,10 @@ class EthereumDB {
         foreach($aAssets as $asset){
             if(!isset($aContractInfo[$asset])) continue;
 
-            $cursor = $this->dbs['transfers']
+            $cursor = $this->dbs['operations']
                 ->find(array(
                     'contract' => $aContractInfo[$asset]['address'],
+                    'type' => 'transfer',
                     '$or' => array(array("from" => $address), array("to" => $address))))
                     ->sort(array("timestamp" => 1))
                     ->limit($limit);
@@ -533,8 +537,8 @@ class EthereumDB {
      * @return array
      */
     public function getAddressTransfers($address, $limit = 10){
-        $cursor = $this->dbs['transfers']
-            ->find(array('$or' => array(array("from" => $address), array("to" => $address))))
+        $cursor = $this->dbs['operations']
+            ->find(array('$or' => array(array("from" => $address), array("to" => $address)), 'type' => 'transfer'))
                 ->sort(array("timestamp" => -1))
                 ->limit($limit);
         $result = array();
@@ -556,8 +560,8 @@ class EthereumDB {
      * @return array
      */
     protected function getContractOperation($type, $address, $limit){
-        $cursor = $this->dbs[$type]
-            ->find(array("contract" => $address))
+        $cursor = $this->dbs['operations']
+            ->find(array("contract" => $address, 'type' => $type))
                 ->sort(array("timestamp" => -1))
                 ->limit($limit);
         $result = array();

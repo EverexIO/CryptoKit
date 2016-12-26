@@ -443,9 +443,10 @@ class EthereumDB {
                 if(!isset($aContractInfo[$asset])) continue;
                 $cursor = $this->dbs['balances']->find(array('address' => $address, 'contract' => $aContractInfo[$asset]['address']));
                 $result = $cursor->hasNext() ? $cursor->getNext() : false;
+                $digits = intval($aContractInfo[$asset]['decimals']);
                 if($result){
                     $aResult[$address][$asset] = array(
-                        'balance' => $this->getDecimalFromJSObject($result['balance'], $aContractInfo[$asset]['decimals'])->__toString()
+                        'balance' => round(floatval($result['balance']) / pow(10, $digits), $digits)
                     );
                 }
             }

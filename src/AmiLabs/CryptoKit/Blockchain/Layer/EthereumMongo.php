@@ -315,7 +315,7 @@ class EthereumMongo implements ILayer
     }
 
     public function getAddressDetails($address){
-        $aResult = $this->getDB()->getAddressesBalances($address);
+        $aResult = $this->getDB()->getAddressDetails($address);
         $balances = $this->getFuelBalance(array($address));
         $aResult['balance'] = isset($balances[$address]) ? $balances[$address] : 0;
         return $aResult;

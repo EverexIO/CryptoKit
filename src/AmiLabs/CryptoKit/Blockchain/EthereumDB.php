@@ -162,6 +162,14 @@ class EthereumDB {
             "balance"       => $this->getBalance($address),
             "transfers"     => array()
         );
+
+        $totalIn = 0;
+        $cursor = $this->dbs['transactions']->find(array("to" => $address), array('value'));
+        while($cursor->hasNext()){
+            $res = $cursor->getNext();
+            $totalIn += $res['value'] / 1e+18;
+        }
+        $result['totalIn'] = $totalIn;
         $contract = $this->getContract($address);
         $token = false;
         if($contract){
@@ -497,19 +505,21 @@ class EthereumDB {
                     ->sort(array("timestamp" => 1))
                     ->limit($limit);
 
-            $balance = Decimal::create(0);
+            $balance = 0;
             foreach($cursor as $transfer){
                 $aTxDetails = $this->getTransactionDetails($transfer['transactionHash']);
                 $txAddress = $transfer['to'];
                 $txOppAddress = $transfer['from'];
-                $txQuantity = $this->getDecimalFromJSObject($transfer['value'], $aContractInfo[$asset]['decimals']);
+
+                $digits = intval($aContractInfo[$asset]['decimals']);
+                $txQuantity = round(floatval($transfer['value']) / pow(10, $digits), $digits);
                 if($transfer['from'] == $address){
-                    $txQuantity = $txQuantity->mul(Decimal::create(-1));
+                    $txQuantity = -$txQuantity;
                     $txAddress = $transfer['from'];
                     $txOppAddress = $transfer['to'];
                 }
 
-                $balance = $balance->add($txQuantity);
+                $balance += $txQuantity;
 
                 $aResult[] = array(
                     'date' => date('Y-m-d H:i:s', $transfer['timestamp']),
@@ -518,9 +528,9 @@ class EthereumDB {
                     'tx_hash' => $transfer['transactionHash'],
                     'address' => $txAddress,
                     'opposite_address' => $txOppAddress,
-                    'difference' => $txQuantity->__toString(),
+                    'difference' => $txQuantity,
                     'asset' => $asset,
-                    'balance' => $balance->__toString(),
+                    'balance' => round($balance, $digits),
                     'failedReason' => false
                 );
             }

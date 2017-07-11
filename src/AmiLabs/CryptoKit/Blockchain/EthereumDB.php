@@ -164,10 +164,10 @@ class EthereumDB {
         );
 
         $totalIn = 0;
-        $cursor = $this->dbs['transactions']->find(array("to" => $address), array('value'));
+        $cursor = $this->dbs['transactions']->find(array("to" => $address)/*, array('value')*/);
         while($cursor->hasNext()){
             $res = $cursor->getNext();
-            $totalIn += $res['value'] / 1e+18;
+            $totalIn += $res['value']/* / 1e+18 */;
         }
         $result['totalIn'] = $totalIn;
         $contract = $this->getContract($address);

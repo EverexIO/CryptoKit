@@ -314,6 +314,14 @@ class EthereumMongo implements ILayer
         return $this->getDB()->getAddressesBalances($aAssets, $aWallets, $logResult);;
     }
 
+    public function getAddressDetails($address){
+        $aResult = $this->getDB()->getAddressesBalances($address);
+        $balances = $this->getFuelBalance(array($address));
+        $aResult['balance'] = isset($balances[$address]) ? $balances[$address] : 0;
+        return $aResult;
+    }
+
+
     /**
      * Returns address history.
      *

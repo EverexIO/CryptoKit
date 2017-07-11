@@ -159,7 +159,7 @@ class EthereumDB {
     public function getAddressDetails($address){
         $result = array(
             "isContract"    => false,
-            "balance"       => $this->getBalance($address),
+            "balance"       => 0, // $this->getBalance($address),
             "transfers"     => array()
         );
 

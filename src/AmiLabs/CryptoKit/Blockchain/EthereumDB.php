@@ -89,12 +89,12 @@ class EthereumDB {
             $oMongo = new \MongoClient($this->aSettings['mongo']['server']);
             $oDB = $oMongo->{$this->aSettings['mongo']['dbName']};
             $this->dbs = array(
-                'transactions' => $oDB->{"everex.eth.transactions"},
-                'blocks'       => $oDB->{"everex.eth.blocks"},
-                'contracts'    => $oDB->{"everex.eth.contracts"},
-                'tokens'       => $oDB->{"everex.erc20.contracts"},
-                'operations'   => $oDB->{"everex.erc20.operations"},
-                'balances'     => $oDB->{"everex.erc20.balances"},
+                'transactions' => $oDB->{"transactions"},
+                'blocks'       => $oDB->{"blocks"},
+                'contracts'    => $oDB->{"contracts"},
+                'tokens'       => $oDB->{"tokens"},
+                'operations'   => $oDB->{"tokenOperations"},
+                'balances'     => $oDB->{"tokenBalances"},
             );
         }else{
             throw new \Exception("MongoClient class not found, php_mongo extension required");

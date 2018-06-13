@@ -522,7 +522,7 @@ class EthereumDB {
                 $balance += $txQuantity;
 
                 $aResult[] = array(
-                    'date' => gmdate('Y-m-d H:i:s', $transfer['timestamp']),
+                    'date' => date('Y-m-d H:i:s', $transfer['timestamp']),
                     'block' => $aTxDetails['tx']['blockNumber'],
                     'confirmations' => $aTxDetails['tx']['confirmations'],
                     'tx_hash' => $transfer['transactionHash'],

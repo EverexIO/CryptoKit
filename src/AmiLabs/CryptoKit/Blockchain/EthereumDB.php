@@ -523,6 +523,7 @@ class EthereumDB {
 
                 $aResult[] = array(
                     'date' => date('Y-m-d H:i:s', $transfer['timestamp']),
+                    'timestamp' => $transfer['timestamp'] * 1000,
                     'block' => $aTxDetails['tx']['blockNumber'],
                     'confirmations' => $aTxDetails['tx']['confirmations'],
                     'tx_hash' => $transfer['transactionHash'],

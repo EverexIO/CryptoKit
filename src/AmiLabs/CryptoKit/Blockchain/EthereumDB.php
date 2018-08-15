@@ -93,7 +93,7 @@ class EthereumDB {
                 'blocks'       => $oDB->{"blocks"},
                 'contracts'    => $oDB->{"contracts"},
                 'tokens'       => $oDB->{"tokens"},
-                'operations'   => $oDB->{"tokenOperations"},
+                'operations'   => $oDB->{"tokenOperations2"},
                 'balances'     => $oDB->{"tokenBalances"},
             );
         }else{

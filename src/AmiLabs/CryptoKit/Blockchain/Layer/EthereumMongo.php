@@ -292,9 +292,9 @@ class EthereumMongo implements ILayer
      * @param  bool   $cacheResult  Flag specifying to cache result
      * @return array
      */
-    public function decodeTx($rawData, $logResult = FALSE, $cacheResult = TRUE)
+    public function checkBalance($rawData, $logResult = FALSE, $cacheResult = TRUE)
     {
-        $data = $this->getRPC()->exec('eth-service', 'decodeTx', array($rawData), $logResult, $cacheResult);
+        $data = $this->getRPC()->exec('eth-service', 'checkBalance', array($rawData), $logResult, $cacheResult);
         return $data;
     }
 

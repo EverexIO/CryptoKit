@@ -223,17 +223,21 @@ class EthereumMongo implements ILayer
      * Creates specified tx sending amount of asset from source
      * to destination and returns raw tx data.
      *
-     * @param  string $source       Source address
-     * @param  string $destination  Destination address
-     * @param  string $asset        Asset name
-     * @param  int    $amount       Amount (in satoshi)
-     * @param  array  $aPublicKeys  List of public keys of all addresses
-     * @param  bool   $logResult    Flag specifying to log result
+     * @param  string $source        Source address
+     * @param  string $destination   Destination address
+     * @param  string $asset         Asset name
+     * @param  int    $amount        Amount (in satoshi)
+     * @param  array  $aPublicKeys   List of public keys of all addresses
+     * @param  bool   $logResult     Flag specifying to log result
+     * @param  array  $aETHGasPrice  ETH gas price info
      * @return string
      */
-    public function send($source, $destination, $asset, $amount, array $aPublicKeys = array(), $logResult = TRUE)
+    public function send($source, $destination, $asset, $amount, array $aPublicKeys = array(), $logResult = TRUE, array $aETHGasPrice = array())
     {
-        return $this->getRPC()->exec('eth-service', 'createSendTx', array($source, $destination, $asset, $amount), $logResult);
+        $average = isset($aETHGasPrice['average']) ? $aETHGasPrice['average'] : 0;
+        $fast = isset($aETHGasPrice['fast']) ? $aETHGasPrice['fast'] : 0;
+        $safeLow = isset($aETHGasPrice['safeLow']) ? $aETHGasPrice['safeLow'] : 0;
+        return $this->getRPC()->exec('eth-service', 'createSendTx', array($source, $destination, $asset, $amount, $average, $fast, $safeLow), $logResult);
     }
 
     /**
@@ -277,6 +281,20 @@ class EthereumMongo implements ILayer
     public function decodeRawTx($rawData, $logResult = FALSE, $cacheResult = TRUE)
     {
         $data = $this->getRPC()->exec('eth-service', 'decodeRawTx', array($rawData), $logResult, $cacheResult);
+        return $data;
+    }
+
+    /**
+     * Decodes tx.
+     *
+     * @param  string $rawData
+     * @param  bool   $logResult    Flag specifying to log result
+     * @param  bool   $cacheResult  Flag specifying to cache result
+     * @return array
+     */
+    public function decodeTx($rawData, $logResult = FALSE, $cacheResult = TRUE)
+    {
+        $data = $this->getRPC()->exec('eth-service', 'decodeTx', array($rawData), $logResult, $cacheResult);
         return $data;
     }
 

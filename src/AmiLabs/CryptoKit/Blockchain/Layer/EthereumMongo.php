@@ -304,7 +304,7 @@ class EthereumMongo implements ILayer
      * @param  array   $txInfo
      * @return array
      */
-    public function topUpAndSendRawTx($rawData, $txInfo, $topUpTx){
+    public function topUpAndSendRawTx($rawData, $topUpTx){
         $rawData = strtolower($rawData);
         if(FALSE === strpos($rawData, '0x')){
             $rawData = '0x' . $rawData;
@@ -313,7 +313,7 @@ class EthereumMongo implements ILayer
         if(FALSE === strpos($topUpTx, '0x')){
             $topUpTx = '0x' . $topUpTx;
         }
-        return $this->getRPC()->exec('eth-service', 'topUpAndSendRawTx', array($rawData, $txInfo, $topUpTx), TRUE, FALSE);
+        return $this->getRPC()->exec('eth-service', 'topUpAndSendRawTx', array($rawData, $topUpTx), TRUE, FALSE);
     }
 
     /**

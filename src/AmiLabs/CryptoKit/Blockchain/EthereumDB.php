@@ -256,10 +256,7 @@ class EthereumDB {
         $result = $cursor->hasNext() ? $cursor->getNext() : false;
         if($result){
             unset($result["_id"]);
-            $result['gasLimit'] = $result['gas'];
-            unset($result["gas"]);
-            $result['gasUsed'] = isset($result['receipt']) ? $result['receipt']['gasUsed'] : 0;
-            $result['success'] = isset($result['receipt']) ? ($result['gasUsed'] < $result['gasLimit']) : true;
+            $result['success'] = isset($result['status']) ? ($result['status'] == '0x01') : (($result['gasUsed'] < $result['gasLimit']) && ($result['gasUsed'] > 21000));
         }
         return $result;
     }

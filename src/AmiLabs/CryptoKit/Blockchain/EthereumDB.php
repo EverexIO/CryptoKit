@@ -531,7 +531,7 @@ class EthereumDB {
                     'confirmations' => $aTxDetails['tx']['confirmations'],
                     'tx_hash' => $transfer['transactionHash'],
                     'gas_price' => $aTxDetails['tx']['gasPrice'],
-                    'gas_used' => $aTxDetails['tx']['gasPrice'],
+                    'gas_used' => $aTxDetails['tx']['gasUsed'],
                     'address' => $txAddress,
                     'opposite_address' => $txOppAddress,
                     'difference' => $txQuantity,

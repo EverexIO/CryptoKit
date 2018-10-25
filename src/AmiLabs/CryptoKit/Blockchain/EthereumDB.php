@@ -498,12 +498,15 @@ class EthereumDB {
             if(!isset($aContractInfo[$asset])) continue;
 
             $cursor = $this->dbs['operations']
-                ->find(array(
-                    'contract' => $aContractInfo[$asset]['address'],
-                    'type' => 'transfer',
-                    '$or' => array(array("from" => $address), array("to" => $address))))
-                    ->sort(array("timestamp" => 1))
-                    ->limit($limit);
+                ->find(
+                    array(
+                        'contract' => $aContractInfo[$asset]['address'],
+                        'type' => 'transfer',
+                        'addresses' => $address, // '$or' => array(array("from" => $address), array("to" => $address))))
+                    )
+                )
+                ->sort(array("timestamp" => (($order == 'asc') ? 1 : -1)))
+                ->limit($limit);
 
             $balance = 0;
             foreach($cursor as $transfer){
@@ -527,6 +530,8 @@ class EthereumDB {
                     'block' => $aTxDetails['tx']['blockNumber'],
                     'confirmations' => $aTxDetails['tx']['confirmations'],
                     'tx_hash' => $transfer['transactionHash'],
+                    'gas_price' => $aTxDetails['tx']['gasPrice'],
+                    'gas_used' => $aTxDetails['tx']['gasPrice'],
                     'address' => $txAddress,
                     'opposite_address' => $txOppAddress,
                     'difference' => $txQuantity,

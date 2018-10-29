@@ -533,6 +533,7 @@ class EthereumDB {
                     'opposite_address' => $txOppAddress,
                     'difference' => $txQuantity,
                     'asset' => $asset,
+                    'usdPrice' => isset($transfer['usdPrice']) ? $transfer['usdPrice'] : 0,
                     'balance' => round($balance, $digits),
                     'failedReason' => false
                 );

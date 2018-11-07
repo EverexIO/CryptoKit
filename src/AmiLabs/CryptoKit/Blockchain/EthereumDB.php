@@ -333,9 +333,18 @@ class EthereumDB {
      * @return array
      */
     public function getToken($address){
-        $aTokens = $this->getTokens();
-        $result = isset($aTokens[$address]) ? $aTokens[$address] : false;
-        if($result) unset($result["_id"]);
+        $result = false;
+        $oCache = Cache::get('token-' . $address);
+        if(!$oCache->exists() || $oCache->clearIfOlderThan(self::TOKEN_UPDATE_INTERVAL)){
+            $cursor = $this->dbs['tokens']->find(array("address" => $address));
+            $result = $cursor->hasNext() ? $cursor->getNext() : false;
+            if($result){
+                unset($result["_id"]);
+                $oCache->save($result);
+            }
+        }else{
+            $result = $oCache->load();
+        }        
         return $result;
     }
 

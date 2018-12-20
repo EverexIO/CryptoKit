@@ -232,12 +232,12 @@ class EthereumMongo implements ILayer
      * @param  array  $aETHGasPrice  ETH gas price info
      * @return string
      */
-    public function send($source, $destination, $asset, $amount, array $aPublicKeys = array(), $logResult = TRUE, array $aETHGasPrice = array())
+    public function send($source, $destination, $asset, $amount, array $aPublicKeys = array(), $logResult = TRUE, array $aETHGasPrice = array(), $useActualNonce = false)
     {
         $average = isset($aETHGasPrice['average']) ? $aETHGasPrice['average'] : 0;
         $fast = isset($aETHGasPrice['fast']) ? $aETHGasPrice['fast'] : 0;
         $safeLow = isset($aETHGasPrice['safeLow']) ? $aETHGasPrice['safeLow'] : 0;
-        return $this->getRPC()->exec('eth-service', 'createSendTx', array($source, $destination, $asset, $amount, $average, $fast, $safeLow), $logResult);
+        return $this->getRPC()->exec('eth-service', 'createSendTx', array($source, $destination, $asset, $amount, $average, $fast, $safeLow, $useActualNonce), $logResult);
     }
 
     /**

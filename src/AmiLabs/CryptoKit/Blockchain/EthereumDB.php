@@ -82,8 +82,11 @@ class EthereumDB {
                 throw new \Exception("Mongo configuration not found");
             }
         }
-        if(!isset($this->aSettings['ethereum'])){
+        if(!empty($this->aSettings['ethereum'])){
             $this->aSettings['ethereum'] = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
+        }
+        if(!isset($this->aSettings['assets'])){
+            $this->aSettings['assets'] = Registry::useStorage('CFG')->get('assets', []);
         }
         if(class_exists("MongoClient")){
             $oMongo = new \MongoClient($this->aSettings['mongo']['server']);
@@ -420,8 +423,13 @@ class EthereumDB {
      * @return array
      */
     public function getAddressBalances($address, $withZero = TRUE, $log = FALSE){
-        $aConfig = $this->aSettings['ethereum'];
-        $aAssets = isset($aConfig['contracts']) ? array_keys($aConfig['contracts']) : array();
+        $aAssets = [];
+        if(!empty($this->aSettings['assets'])){
+            $aAssets = array_keys($this->aSettings['assets']);
+        } elseif (!empty($this->aSettings['ethereum'])) {
+            $aConfig = $this->aSettings['ethereum'];
+            $aAssets = isset($aConfig['contracts']) ? array_keys($aConfig['contracts']) : array();
+        }
         $aResult = array();
         // @todo: $withZero flag implementation
         if(!empty($aAssets)){
@@ -442,19 +450,26 @@ class EthereumDB {
         array $aAddress = array(),
         $log = FALSE
     ){
-        $aConfig = $this->aSettings['ethereum'];
-
         $aContractInfo = array();
-        if(isset($aConfig['contracts'])){
-            foreach($aConfig['contracts'] as $asset => $address){
-                $aContractInfo[$asset] = $this->getToken($address);
+        if(!empty($this->aSettings['assets'])){
+            $aConfigAssets = $this->aSettings['assets'];
+            foreach($aConfigAssets as $asset => $data){
+                $aContractInfo[$asset] = $this->getToken($data['contractAddress']);
+            }            
+        } elseif (!empty($this->aSettings['ethereum'])) {
+            // Backward compatibility
+            $aConfig = $this->aSettings['ethereum'];
+            if(isset($aConfig['contracts'])){
+                foreach($aConfig['contracts'] as $asset => $address){
+                    $aContractInfo[$asset] = $this->getToken($address);
+                }
             }
         }
-
+        
         $aResult = array();
         foreach($aAssets as $asset){
+            if(!isset($aContractInfo[$asset])) continue;
             foreach($aAddress as $address){
-                if(!isset($aContractInfo[$asset])) continue;
                 $cursor = $this->dbs['balances']->find(array('address' => $address, 'contract' => $aContractInfo[$asset]['address']));
                 $result = $cursor->hasNext() ? $cursor->getNext() : false;
                 $digits = intval($aContractInfo[$asset]['decimals']);

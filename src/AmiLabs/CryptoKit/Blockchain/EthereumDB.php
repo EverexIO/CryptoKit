@@ -507,7 +507,7 @@ class EthereumDB {
     ){
         $aContractInfo = array();
         if(!empty($this->aSettings['assets'])){
-            $aConfig = array_keys($this->aSettings['assets']);
+            $aConfig = $this->aSettings['assets'];
             foreach($aConfig as $asset => $aAsset){
                 $aContractInfo[$asset] = $this->getToken($aAsset['contractAddress']);
             }

@@ -347,7 +347,7 @@ class EthereumDB {
             }
         }else{
             $result = $oCache->load();
-        }        
+        }
         return $result;
     }
 
@@ -455,7 +455,7 @@ class EthereumDB {
             $aConfigAssets = $this->aSettings['assets'];
             foreach($aConfigAssets as $asset => $data){
                 $aContractInfo[$asset] = $this->getToken($data['contractAddress']);
-            }            
+            }
         } elseif (!empty($this->aSettings['ethereum'])) {
             // Backward compatibility
             $aConfig = $this->aSettings['ethereum'];
@@ -465,7 +465,7 @@ class EthereumDB {
                 }
             }
         }
-        
+
         $aResult = array();
         foreach($aAssets as $asset){
             if(!isset($aContractInfo[$asset])) continue;
@@ -505,12 +505,18 @@ class EthereumDB {
         $direction,
         array $aTxTypes = array()
     ){
-        $aConfig = $this->aSettings['ethereum'];
-
         $aContractInfo = array();
-        if(isset($aConfig['contracts'])){
-            foreach($aConfig['contracts'] as $asset => $contract){
-                $aContractInfo[$asset] = $this->getToken($contract);
+        if(!empty($this->aSettings['assets'])){
+            $aConfig = array_keys($this->aSettings['assets']);
+            foreach($aConfig as $asset => $aAsset){
+                $aContractInfo[$asset] = $this->getToken($aAsset['contractAddress']);
+            }
+        } elseif (!empty($this->aSettings['ethereum'])) {
+            $aConfig = $this->aSettings['ethereum'];
+            if(isset($aConfig['contracts'])){
+                foreach($aConfig['contracts'] as $asset => $contract){
+                    $aContractInfo[$asset] = $this->getToken($contract);
+                }
             }
         }
 

@@ -267,7 +267,8 @@ class EthereumMongo implements ILayer
         if(FALSE === strpos($rawData, '0x')){
             $rawData = '0x' . $rawData;
         }
-        return $this->getRPC()->exec('geth', 'eth_sendRawTransaction', array($rawData), $logResult, FALSE);
+        //return $this->getRPC()->exec('geth', 'eth_sendRawTransaction', array($rawData), $logResult, FALSE);
+        return $this->getRPC()->exec('eth-service', 'sendRawTransaction', array($rawData), TRUE, FALSE);
     }
 
     /**

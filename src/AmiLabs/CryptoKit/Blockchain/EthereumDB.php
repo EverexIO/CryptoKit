@@ -513,7 +513,7 @@ class EthereumDB {
             foreach($aConfig as $asset => $aAsset){
                 $aContractInfo[$asset] = $this->getToken($aAsset['contractAddress']);
                 $aAssetContracts[$aAsset['contractAddress']] = $asset;
-                $aBalances[$asset] = 0:
+                $aBalances[$asset] = 0;
             }
         } elseif (!empty($this->aSettings['ethereum'])) {
             $aConfig = $this->aSettings['ethereum'];
@@ -521,7 +521,7 @@ class EthereumDB {
                 foreach($aConfig['contracts'] as $asset => $contract){
                     $aContractInfo[$asset] = $this->getToken($contract);
                     $aAssetContracts[$contract] = $asset;
-                    $aBalances[$asset] = 0:
+                    $aBalances[$asset] = 0;
                 }
             }
         }

@@ -506,68 +506,75 @@ class EthereumDB {
         array $aTxTypes = array()
     ){
         $aContractInfo = array();
+        $aAssetContracts = [];
+        $aBalances = [];
         if(!empty($this->aSettings['assets'])){
             $aConfig = array_keys($this->aSettings['assets']);
             foreach($aConfig as $asset => $aAsset){
                 $aContractInfo[$asset] = $this->getToken($aAsset['contractAddress']);
+                $aAssetContracts[$aAsset['contractAddress']] = $asset;
+                $aBalances[$asset] = 0:
             }
         } elseif (!empty($this->aSettings['ethereum'])) {
             $aConfig = $this->aSettings['ethereum'];
             if(isset($aConfig['contracts'])){
                 foreach($aConfig['contracts'] as $asset => $contract){
                     $aContractInfo[$asset] = $this->getToken($contract);
+                    $aAssetContracts[$contract] = $asset;
+                    $aBalances[$asset] = 0:
                 }
             }
         }
 
         $aResult = array();
-        foreach($aAssets as $asset){
-            if(!isset($aContractInfo[$asset])) continue;
-
-            $cursor = $this->dbs['operations']
-                ->find(
-                    array(
-                        'contract' => $aContractInfo[$asset]['address'],
-                        'type' => 'transfer',
-                        'addresses' => $address, // '$or' => array(array("from" => $address), array("to" => $address))))
-                    )
+        $cursor = $this->dbs['operations']
+            ->find(
+                array(
+                    'type' => 'transfer',
+                    'addresses' => $address, // '$or' => array(array("from" => $address), array("to" => $address))))
                 )
-                ->sort(array("timestamp" => (($order == 'asc') ? 1 : -1)))
-                ->limit($limit);
+            )
+            ->sort(array("timestamp" => (($order == 'asc') ? 1 : -1)))
+            ->limit($limit);
 
-            $balance = 0;
-            foreach($cursor as $transfer){
-                $aTxDetails = $this->getTransactionDetails($transfer['transactionHash']);
-                $txAddress = $transfer['to'];
-                $txOppAddress = $transfer['from'];
+        foreach($cursor as $transfer){
 
-                $digits = intval($aContractInfo[$asset]['decimals']);
-                $txQuantity = round(floatval($transfer['value']) / pow(10, $digits), $digits);
-                if($transfer['from'] == $address){
-                    $txQuantity = -$txQuantity;
-                    $txAddress = $transfer['from'];
-                    $txOppAddress = $transfer['to'];
-                }
-
-                $balance += $txQuantity;
-
-                $aResult[] = array(
-                    'date' => date('Y-m-d H:i:s', $transfer['timestamp']),
-                    'timestamp' => $transfer['timestamp'] * 1000,
-                    'block' => $aTxDetails['tx']['blockNumber'],
-                    'confirmations' => $aTxDetails['tx']['confirmations'],
-                    'tx_hash' => $transfer['transactionHash'],
-                    'gas_price' => $aTxDetails['tx']['gasPrice'],
-                    'gas_used' => $aTxDetails['tx']['gasUsed'],
-                    'address' => $txAddress,
-                    'opposite_address' => $txOppAddress,
-                    'difference' => $txQuantity,
-                    'asset' => $asset,
-                    'usdPrice' => isset($transfer['usdPrice']) ? $transfer['usdPrice'] : 0,
-                    'balance' => round($balance, $digits),
-                    'failedReason' => false
-                );
+            if(empty($transfer['contract']) || !isset($aAssetContracts[$transfer['contract']])){
+                continue;
             }
+
+            $asset = $aAssetContracts[$transfer['contract']];
+
+            $aTxDetails = $this->getTransactionDetails($transfer['transactionHash']);
+            $txAddress = $transfer['to'];
+            $txOppAddress = $transfer['from'];
+
+            $digits = intval($aContractInfo[$asset]['decimals']);
+            $txQuantity = round(floatval($transfer['value']) / pow(10, $digits), $digits);
+            if($transfer['from'] == $address){
+                $txQuantity = -$txQuantity;
+                $txAddress = $transfer['from'];
+                $txOppAddress = $transfer['to'];
+            }
+
+            $aBalances[$asset] += $txQuantity;
+
+            $aResult[] = array(
+                'date' => date('Y-m-d H:i:s', $transfer['timestamp']),
+                'timestamp' => $transfer['timestamp'] * 1000,
+                'block' => $aTxDetails['tx']['blockNumber'],
+                'confirmations' => $aTxDetails['tx']['confirmations'],
+                'tx_hash' => $transfer['transactionHash'],
+                'gas_price' => $aTxDetails['tx']['gasPrice'],
+                'gas_used' => $aTxDetails['tx']['gasUsed'],
+                'address' => $txAddress,
+                'opposite_address' => $txOppAddress,
+                'difference' => $txQuantity,
+                'asset' => $asset,
+                'usdPrice' => isset($transfer['usdPrice']) ? $transfer['usdPrice'] : 0,
+                'balance' => round($aBalances[$asset], $digits),
+                'failedReason' => false
+            );
         }
         $aResult = ($direction == 'desc') ? array_reverse($aResult) : $aResult;
         $this->oLogger->log('getAddressHistory [' . $address . "]: " . var_export($aResult, TRUE));

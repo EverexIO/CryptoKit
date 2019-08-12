@@ -545,7 +545,6 @@ class EthereumDB {
 
             $asset = $aAssetContracts[$transfer['contract']];
 
-            $aTxDetails = $this->getTransactionDetails($transfer['transactionHash']);
             $txAddress = $transfer['to'];
             $txOppAddress = $transfer['from'];
 
@@ -562,18 +561,18 @@ class EthereumDB {
             $aResult[] = array(
                 'date' => date('Y-m-d H:i:s', $transfer['timestamp']),
                 'timestamp' => $transfer['timestamp'] * 1000,
-                'block' => $aTxDetails['tx']['blockNumber'],
-                'confirmations' => $aTxDetails['tx']['confirmations'],
+                'block' => $transfer['blockNumber'],
                 'tx_hash' => $transfer['transactionHash'],
-                'gas_price' => $aTxDetails['tx']['gasPrice'],
-                'gas_used' => $aTxDetails['tx']['gasUsed'],
                 'address' => $txAddress,
                 'opposite_address' => $txOppAddress,
                 'difference' => $txQuantity,
                 'asset' => $asset,
                 'usdPrice' => isset($transfer['usdPrice']) ? $transfer['usdPrice'] : 0,
                 'balance' => round($aBalances[$asset], $digits),
-                'failedReason' => false
+                'failedReason' => false,
+                'confirmations' => 1, // Unused, for compatibility only
+                'gas_price' => 1, // Unused, for compatibility only
+                'gas_used' => 1, // Unused, for compatibility only
             );
         }
         $aResult = ($direction == 'desc') ? array_reverse($aResult) : $aResult;

@@ -321,7 +321,6 @@ class EthereumMongo implements ILayer
      * Returns number of transaction confirmations.
      *
      * @param string $txHash     Transaction hash
-     * @param bool $logResult    Flag specifying to log result
      * @return mixed
      */
     public function getTxConfirmations($txHash, $logResult = FALSE){
@@ -329,6 +328,22 @@ class EthereumMongo implements ILayer
         $aTxData = $this->getDB()->getTransaction($txHash);
         if($aTxData){
             $result = $this->getDB()->getLastBlock() - (int)$aTxData['blockNumber'];
+        }
+        return $result;
+    }
+
+    /**
+     * Returns tx status.
+     *
+     * @param string $txHash     Transaction hash
+     * @return mixed
+     */
+    public function getTxStatus($txHash){
+        $result = [];
+        $aTxData = $this->getDB()->getTransaction($txHash);
+        if($aTxData){
+            $result['confirmations'] = $this->getDB()->getLastBlock() - (int)$aTxData['blockNumber'];
+            $result['success'] = (bool)$aTxData['success'];
         }
         return $result;
     }

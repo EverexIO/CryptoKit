@@ -240,6 +240,14 @@ class EthereumMongo implements ILayer
         return $this->getRPC()->exec('eth-service', 'createSendTx', array($source, $destination, $asset, $amount, $average, $fast, $safeLow, $useActualNonce), $logResult);
     }
 
+    public function hwSend($source, $destination, $asset, $amount, array $aPublicKeys = array(), $logResult = TRUE, array $aETHGasPrice = array(), $useActualNonce = false)
+    {
+        $average = isset($aETHGasPrice['average']) ? $aETHGasPrice['average'] : 0;
+        $fast = isset($aETHGasPrice['fast']) ? $aETHGasPrice['fast'] : 0;
+        $safeLow = isset($aETHGasPrice['safeLow']) ? $aETHGasPrice['safeLow'] : 0;
+        return $this->getRPC()->exec('eth-service', 'createHwSendTx', array($source, $destination, $asset, $amount, $average, $fast, $safeLow, $useActualNonce), $logResult);
+    }
+
     /**
      * Signs raw tx.
      *

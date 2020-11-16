@@ -18,7 +18,7 @@
         },
         {
             "type": "vcs",
-            "url": "https://github.com/artemko7v/php-op_return"
+            "url": "https://github.com/coinspark/php-op_return"
         }
     ],
     "require": {

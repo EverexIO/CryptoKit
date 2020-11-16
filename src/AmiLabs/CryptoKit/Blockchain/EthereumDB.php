@@ -18,13 +18,25 @@
 
 namespace AmiLabs\CryptoKit\Blockchain;
 
-use \AmiLabs\DevKit\Cache;
+use AmiLabs\DevKit\Cache;
+use AmiLabs\DevKit\Logger;
+use AmiLabs\DevKit\Registry;
+use \Litipk\BigNumbers\Decimal;
 
 /**
  * Class to interact with Ethereum parsed mongodb database.
  */
 class EthereumDB {
+    /**
+     * Token cache update interval
+     */
+    const TOKEN_UPDATE_INTERVAL = 3600;
 
+    /**
+     * Settings array
+     *
+     * @var array
+     */
     protected $aSettings = array();
 
     /**
@@ -49,32 +61,46 @@ class EthereumDB {
     protected $lastBlock;
 
     /**
+     * Logger object
+     *
+     * @var \AmiLabs\DevKit\Logger
+     */
+    protected $oLogger;
+
+    /**
      * Constructor.
      *
-     * @throws Exception
+     * @throws \Exception
      */
     protected function __construct(array $aConfig){
+        $this->oLogger = Logger::get('ethereum-mongo', FALSE, TRUE);
+
         $this->aSettings = $aConfig;
         if(!isset($this->aSettings['mongo'])){
-            throw new Exception("Mongo configuration not found");
+            $this->aSettings['mongo'] = Registry::useStorage('CFG')->get('CryptoKit/mongo', FALSE);
+            if(FALSE === $this->aSettings['mongo']){
+                throw new \Exception("Mongo configuration not found");
+            }
         }
-        if(!isset($this->aSettings['ethereum'])){
-            throw new Exception("Ethereum configuration not found");
+        if(!empty($this->aSettings['ethereum'])){
+            $this->aSettings['ethereum'] = Registry::useStorage('CFG')->get('CryptoKit/ethereum', FALSE);
+        }
+        if(!isset($this->aSettings['assets'])){
+            $this->aSettings['assets'] = Registry::useStorage('CFG')->get('assets', []);
         }
         if(class_exists("MongoClient")){
-            $oMongo = new MongoClient($this->aSettings['mongo']['server']);
+            $oMongo = new \MongoClient($this->aSettings['mongo']['server']);
             $oDB = $oMongo->{$this->aSettings['mongo']['dbName']};
             $this->dbs = array(
-                'transactions' => $oDB->{"everex.eth.transactions"},
-                'blocks'       => $oDB->{"everex.eth.blocks"},
-                'contracts'    => $oDB->{"everex.eth.contracts"},
-                'tokens'       => $oDB->{"everex.erc20.contracts"},
-                'transfers'    => $oDB->{"everex.erc20.transfers"},
-                'issuances'    => $oDB->{"everex.erc20.issuances"},
-                'balances'     => $oDB->{"everex.erc20.balances"},
+                'transactions' => $oDB->{"transactions"},
+                'blocks'       => $oDB->{"blocks"},
+                'contracts'    => $oDB->{"contracts"},
+                'tokens'       => $oDB->{"tokens"},
+                'operations'   => $oDB->{"tokenOperations2"},
+                'balances'     => $oDB->{"tokenBalances"},
             );
         }else{
-            throw new Exception("MongoClient class not found, php_mongo extension required");
+            throw new \Exception("MongoClient class not found, php_mongo extension required");
         }
     }
 
@@ -85,7 +111,7 @@ class EthereumDB {
      */
     public static function db(array $aConfig = array()){
         if(is_null(self::$oInstance)){
-            self::$oInstance = new Etherscan($aConfig);
+            self::$oInstance = new EthereumDB($aConfig);
         }
         return self::$oInstance;
     }
@@ -111,6 +137,23 @@ class EthereumDB {
     }
 
     /**
+     * Returns list of block transactions.
+     *
+     * @param int $block
+     * @return array
+     */
+    public function getBlockTransactions($block){
+        $cursor = $this->dbs['transactions']->find(array("blockNumber" => (int)$block));
+        $result = array();
+        while($cursor->hasNext()){
+            $res = $cursor->getNext();
+            unset($res["_id"]);
+            $result[] = $res;
+        }
+        return $result;
+    }
+
+    /**
      * Returns advanced address details.
      *
      * @param string $address
@@ -119,9 +162,17 @@ class EthereumDB {
     public function getAddressDetails($address){
         $result = array(
             "isContract"    => false,
-            "balance"       => $this->getBalance($address),
+            "balance"       => 0, // $this->getBalance($address),
             "transfers"     => array()
         );
+
+        $totalIn = 0;
+        $cursor = $this->dbs['transactions']->find(array("to" => $address)/*, array('value')*/);
+        while($cursor->hasNext()){
+            $res = $cursor->getNext();
+            $totalIn += $res['value']/* / 1e+18 */;
+        }
+        $result['totalIn'] = $totalIn;
         $contract = $this->getContract($address);
         $token = false;
         if($contract){
@@ -191,24 +242,10 @@ class EthereumDB {
         }else{
             $result = $oCache->load();
         }
-        if(is_array($result) && is_array($tx)){
-            $result['tx']['confirmations'] = $this->getLastBlock() - $tx['blockNumber'];
+        if(is_array($result) && is_array($result['tx'])){
+            $result['tx']['confirmations'] = $this->getLastBlock() - $result['tx']['blockNumber'];
         }
         return $result;
-    }
-
-    /**
-     * Return address ETH balance.
-     *
-     * @param string  $address  Address
-     * @return double
-     */
-    public function getBalance($address){
-        $balance = $this->_callRPC('eth_getBalance', array($address, 'latest'));
-        if(false !== $balance){
-            $balance = hexdec(str_replace('0x', '', $balance)) / pow(10, 18);
-        }
-        return $balance;
     }
 
     /**
@@ -222,11 +259,31 @@ class EthereumDB {
         $result = $cursor->hasNext() ? $cursor->getNext() : false;
         if($result){
             unset($result["_id"]);
-            $result['gasLimit'] = $result['gas'];
-            unset($result["gas"]);
-            $result['gasUsed'] = isset($result['receipt']) ? $result['receipt']['gasUsed'] : 0;
-            $result['success'] = isset($result['receipt']) ? ($result['gasUsed'] < $result['gasLimit']) : true;
+            $result['success'] = isset($result['status']) ? ($result['status'] == '0x1') : (($result['gasUsed'] < $result['gasLimit']) && ($result['gasUsed'] > 21000));
         }
+        return $result;
+    }
+    /**
+     * Returns list of transfers in specified transaction.
+     *
+     * @param string  $tx  Transaction hash
+     * @return array
+     */
+    public function getOperations($tx, $type = FALSE){
+        // evxProfiler::checkpoint('getOperations START [hash=' . $tx . ']');
+        $search = array("transactionHash" => $tx);
+        if($type){
+            $search['type'] = $type;
+        }
+        $cursor = $this->dbs['operations']->find($search);
+        $result = array();
+        while($cursor->hasNext()){
+            $res = $cursor->getNext();
+            unset($res["_id"]);
+            $res["success"] = true;
+            $result[] = $res;
+        }
+        // evxProfiler::checkpoint('getOperations FINISH [hash=' . $tx . ']');
         return $result;
     }
 
@@ -237,16 +294,7 @@ class EthereumDB {
      * @return array
      */
     public function getTransfers($tx){
-        $cursor = $this->dbs['transfers']->find(array("transactionHash" => $tx));
-        $result = array();
-        while($cursor->hasNext()){
-            $res = $cursor->getNext();
-            unset($res["_id"]);
-            $res["success"] = true;
-            $res["type"] = "transfer";
-            $result[] = $res;
-        }
-        return $result;
+        return $this->getOperations($tx, 'transfer');
     }
 
     /**
@@ -256,18 +304,8 @@ class EthereumDB {
      * @return array
      */
     public function getIssuances($tx){
-        $cursor = $this->dbs['issuances']->find(array("transactionHash" => $tx));
-        $result = array();
-        while($cursor->hasNext()){
-            $res = $cursor->getNext();
-            unset($res["_id"]);
-            $res["success"] = true;
-            $res["type"] = "issuance";
-            $result[] = $res;
-        }
-        return $result;
+        return $this->getOperations($tx, 'issuance');
     }
-
     /**
      * Returns list of known tokens.
      *
@@ -276,7 +314,7 @@ class EthereumDB {
      */
     public function getTokens($updateCache = false){
         $oCache = Cache::get('tokens');
-        if($updateCache || !$oCache->exists()){
+        if($updateCache || !$oCache->exists() || $oCache->clearIfOlderThan(self::TOKEN_UPDATE_INTERVAL)){
             $cursor = $this->dbs['tokens']->find()->sort(array("transfersCount" => -1));
             $aResult = array();
             foreach($cursor as $aToken){
@@ -298,9 +336,18 @@ class EthereumDB {
      * @return array
      */
     public function getToken($address){
-        $aTokens = $this->getTokens();
-        $result = isset($aTokens[$address]) ? $aTokens[$address] : false;
-        if($result) unset($result["_id"]);
+        $result = false;
+        $oCache = Cache::get('token-' . $address);
+        if(!$oCache->exists() || $oCache->clearIfOlderThan(self::TOKEN_UPDATE_INTERVAL)){
+            $cursor = $this->dbs['tokens']->find(array("address" => $address));
+            $result = $cursor->hasNext() ? $cursor->getNext() : false;
+            if($result){
+                unset($result["_id"]);
+                $oCache->save($result);
+            }
+        }else{
+            $result = $oCache->load();
+        }
         return $result;
     }
 
@@ -325,7 +372,7 @@ class EthereumDB {
      * @return array
      */
     public function getContractTransfers($address, $limit = 10){
-        return $this->getContractOperation('transfers', $address, $limit);
+        return $this->getContractOperation('transfer', $address, $limit);
     }
 
     /**
@@ -336,7 +383,22 @@ class EthereumDB {
      * @return array
      */
     public function getContractIssuances($address, $limit = 10){
-        return $this->getContractOperation('issuances', $address, $limit);
+        return $this->getContractOperation('issuance', $address, $limit);
+    }
+
+    /**
+     * Returns number of contract transactions.
+     *
+     * @param string $address  Contract address
+     * @return int
+     */
+    public function getContractTransactionsNum($address){
+        $cursor = $this->dbs['tokens']->find(array("address" => $address));
+        $result = $cursor->hasNext() ? $cursor->getNext() : false;
+        if($result){
+            return (int)$result['txsCount'];
+        }
+        return 0;
     }
 
     /**
@@ -360,17 +422,162 @@ class EthereumDB {
      * @param bool $withZero   Returns zero balances if true
      * @return array
      */
-    public function getAddressBalances($address, $withZero = true){
-        $cursor = $this->dbs['balances']->find(array("address" => $address));
-        $result = array();
-        $fetches = 0;
-        foreach($cursor as $balance){
-            unset($balance["_id"]);
-            // @todo: $withZero flag implementation
-            $result[] = $balance;
-            $fetches++;
+    public function getAddressBalances($address, $withZero = TRUE, $log = FALSE){
+        $aAssets = [];
+        if(!empty($this->aSettings['assets'])){
+            $aAssets = array_keys($this->aSettings['assets']);
+        } elseif (!empty($this->aSettings['ethereum'])) {
+            $aConfig = $this->aSettings['ethereum'];
+            $aAssets = isset($aConfig['contracts']) ? array_keys($aConfig['contracts']) : array();
         }
-        return $result;
+        $aResult = array();
+        // @todo: $withZero flag implementation
+        if(!empty($aAssets)){
+            $aResult = $this->getAddressesBalances($aAssets, array($address), $log);
+        }
+        return $aResult;
+    }
+
+    /**
+     * Returns current balances.
+     *
+     * @param  array $aAssets   List of assets
+     * @param  array $aAddress  Addresses list
+     * @return array
+     */
+    public function getAddressesBalances(
+        array $aAssets = array(),
+        array $aAddress = array(),
+        $log = FALSE
+    ){
+        $aContractInfo = array();
+        if(!empty($this->aSettings['assets'])){
+            $aConfigAssets = $this->aSettings['assets'];
+            foreach($aConfigAssets as $asset => $data){
+                $aContractInfo[$asset] = $this->getToken($data['contractAddress']);
+            }
+        } elseif (!empty($this->aSettings['ethereum'])) {
+            // Backward compatibility
+            $aConfig = $this->aSettings['ethereum'];
+            if(isset($aConfig['contracts'])){
+                foreach($aConfig['contracts'] as $asset => $address){
+                    $aContractInfo[$asset] = $this->getToken($address);
+                }
+            }
+        }
+
+        $aResult = array();
+        foreach($aAssets as $asset){
+            if(!isset($aContractInfo[$asset])) continue;
+            foreach($aAddress as $address){
+                $cursor = $this->dbs['balances']->find(array('address' => $address, 'contract' => $aContractInfo[$asset]['address']));
+                $result = $cursor->hasNext() ? $cursor->getNext() : false;
+                $digits = intval($aContractInfo[$asset]['decimals']);
+                if($result){
+                    $aResult[$address][$asset] = array(
+                        'balance' => round(floatval($result['balance']) / pow(10, $digits), $digits)
+                    );
+                }
+            }
+        }
+        if($log){
+            $this->oLogger->log('getAddressesBalances: ' . var_export($aAddress, TRUE) . "\nResult: " . var_export($aResult, TRUE));
+        }
+        return $aResult;
+    }
+
+    /**
+     * Returns address history.
+     *
+     * @param  array  $aAssets    List of assets
+     * @param  string $address    Addresse
+     * @param  int    $limit      Transactions number
+     * @param  string $order      Sort order
+     * @param  string $direction  Sort direction
+     * @param  array  $aTxTypes   Transactions types
+     * @return array
+     */
+    public function getAddressHistory(
+        array $aAssets = array(),
+        $address,
+        $limit,
+        $order,
+        $direction,
+        array $aTxTypes = array()
+    ){
+        $aContractInfo = array();
+        $aAssetContracts = [];
+        $aBalances = [];
+        if(!empty($this->aSettings['assets'])){
+            $aConfig = $this->aSettings['assets'];
+            foreach($aConfig as $asset => $aAsset){
+                $aContractInfo[$asset] = $this->getToken($aAsset['contractAddress']);
+                $aAssetContracts[$aAsset['contractAddress']] = $asset;
+                $aBalances[$asset] = 0;
+            }
+        } elseif (!empty($this->aSettings['ethereum'])) {
+            $aConfig = $this->aSettings['ethereum'];
+            if(isset($aConfig['contracts'])){
+                foreach($aConfig['contracts'] as $asset => $contract){
+                    $aContractInfo[$asset] = $this->getToken($contract);
+                    $aAssetContracts[$contract] = $asset;
+                    $aBalances[$asset] = 0;
+                }
+            }
+        }
+
+        $aResult = array();
+        $cursor = $this->dbs['operations']
+            ->find(
+                array(
+                    'type' => 'transfer',
+                    'addresses' => $address, // '$or' => array(array("from" => $address), array("to" => $address))))
+                )
+            )
+            ->sort(array("timestamp" => (($order == 'asc') ? 1 : -1)))
+            ->limit($limit);
+
+        foreach($cursor as $transfer){
+
+            if(empty($transfer['contract']) || !isset($aAssetContracts[$transfer['contract']])){
+                continue;
+            }
+
+            $asset = $aAssetContracts[$transfer['contract']];
+
+            $txAddress = $transfer['to'];
+            $txOppAddress = $transfer['from'];
+
+            $digits = intval($aContractInfo[$asset]['decimals']);
+            $txQuantity = round(floatval($transfer['value']) / pow(10, $digits), $digits);
+            if($transfer['from'] == $address){
+                $txQuantity = -$txQuantity;
+                $txAddress = $transfer['from'];
+                $txOppAddress = $transfer['to'];
+            }
+
+            $aBalances[$asset] += $txQuantity;
+
+            $aResult[] = array(
+                'date' => date('Y-m-d H:i:s', $transfer['timestamp']),
+                'timestamp' => $transfer['timestamp'] * 1000,
+                'block' => $transfer['blockNumber'],
+                'tx_hash' => $transfer['transactionHash'],
+                'address' => $txAddress,
+                'opposite_address' => $txOppAddress,
+                'difference' => $txQuantity,
+                'asset' => $asset,
+                'usdPrice' => isset($transfer['usdPrice']) ? $transfer['usdPrice'] : 0,
+                'balance' => round($aBalances[$asset], $digits),
+                'failedReason' => false,
+                'confirmations' => 1, // Unused, for compatibility only
+                'gas_price' => 1, // Unused, for compatibility only
+                'gas_used' => 1, // Unused, for compatibility only
+            );
+        }
+        $aResult = ($direction == 'desc') ? array_reverse($aResult) : $aResult;
+        $this->oLogger->log('getAddressHistory [' . $address . "]: " . var_export($aResult, TRUE));
+        return $aResult;
     }
 
     /**
@@ -381,8 +588,8 @@ class EthereumDB {
      * @return array
      */
     public function getAddressTransfers($address, $limit = 10){
-        $cursor = $this->dbs['transfers']
-            ->find(array('$or' => array(array("from" => $address), array("to" => $address))))
+        $cursor = $this->dbs['operations']
+            ->find(array('$or' => array(array("from" => $address), array("to" => $address)), 'type' => 'transfer'))
                 ->sort(array("timestamp" => -1))
                 ->limit($limit);
         $result = array();
@@ -404,8 +611,8 @@ class EthereumDB {
      * @return array
      */
     protected function getContractOperation($type, $address, $limit){
-        $cursor = $this->dbs[$type]
-            ->find(array("contract" => $address))
+        $cursor = $this->dbs['operations']
+            ->find(array("contract" => $address, 'type' => $type))
                 ->sort(array("timestamp" => -1))
                 ->limit($limit);
         $result = array();
@@ -416,5 +623,46 @@ class EthereumDB {
             $fetches++;
         }
         return $result;
+    }
+
+    /**
+     * Returns balance string value of the big number object.
+     *
+     * @param array $aNumber   Number in js object format
+     * @param array $aDecimal  Number of decimal in js object format
+     * @return \Litipk\BigNumbers\Decimal
+     */
+    protected function getDecimalFromJSObject($aNumber, $aDecimal){
+        $ten = Decimal::create(10);
+        $s   = Decimal::create(1);
+        $c   = Decimal::create(0);
+        $e   = Decimal::create(0);
+        $dec = Decimal::create(0);
+
+        if(is_array($aNumber)){
+            if(isset($aNumber['s'])){
+                $s = Decimal::create($aNumber['s']);
+            }
+            if(isset($aNumber['e'])){
+                $e = Decimal::create($aNumber['e']);
+            }
+            if(isset($aNumber['c']) && !empty($aNumber['c'])){
+                $k = Decimal::create(strlen($aNumber['c'][0]) - 1);
+                $c = Decimal::create($aNumber['c'][0])->mul($ten->pow($e->sub($k)));
+            }
+        }else{
+            $c = Decimal::create($aNumber);
+        }
+
+        if(is_array($aDecimal)){
+            if(isset($aDecimal['c']) && sizeof($aDecimal['c'])){
+                $dec = Decimal::create($aDecimal['c'][0]);
+            }
+        }else{
+            $dec = Decimal::create($aDecimal);
+        }
+
+        $res = $s->mul($c->div($ten->pow($dec)));
+        return $res;
     }
 }

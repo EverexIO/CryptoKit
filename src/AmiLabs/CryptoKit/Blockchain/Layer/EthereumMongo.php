@@ -22,12 +22,10 @@ use Exception;
 use RuntimeException;
 use UnexpectedValueException;
 use AmiLabs\CryptoKit\Blockchain\ILayer;
+use AmiLabs\CryptoKit\Blockchain\EthereumDB;
 use AmiLabs\CryptoKit\RPC;
-use Moontoast\Math\BigNumber;
-use AmiLabs\DevKit\Logger;
-use AmiLabs\DevKit\Registry;
 
-class Ethereum implements ILayer
+class EthereumMongo implements ILayer
 {
     /**
      * RPC execution object
@@ -37,11 +35,25 @@ class Ethereum implements ILayer
     protected $oRPC;
 
     /**
+     * EthereumDB object
+     *
+     * @var \AmiLabs\CryptoKit\Blockchain\EthereumDB
+     */
+    protected $oDB;
+
+    /**
      * Flag specifying that PHP integer is 32bit only
      *
      * @var bool
      */
     protected $is32bit;
+
+    /**
+     * Service-specific configuration
+     *
+     * @var array
+     */
+    protected $aConfig;
 
     /**
      * Database connection object
@@ -67,19 +79,6 @@ class Ethereum implements ILayer
     public function checkServerConfig(array $aConfig)
     {
         $result = TRUE;
-        /*
-        $oLogger = Logger::get('check-eth-servers');
-        if(isset($aConfig['eth-service'])){
-            $address = $aConfig['eth-service']['address'];
-            $aContextOptions = array('http' => array('timeout' => 5), 'ssl'  => array('verify_peer' => FALSE, 'verify_peer_name' => FALSE));
-            $state = @file_get_contents($address, FALSE, stream_context_create($aContextOptions));
-            $result = ($state && (substr($state, 0, 1) == '{') && ($aState = json_decode($state, TRUE)) && is_array($aState) && isset($aState['counterparty-server']) && ('OK' == $aState['counterparty-server']));
-            $oLogger->log($result ? ('OK: ' . $address . ' is UP and RUNNING, using as primary') : ('ERROR: ' . $address . ' is DOWN, skipping'));
-        }else{
-            // Can not check state without Counterblock
-            $oLogger->log('SKIP: No counterblock information in RPC config');
-        }
-        */
         return $result;
     }
 
@@ -103,20 +102,20 @@ class Ethereum implements ILayer
      * @return string
      */
     public function getBalancesServiceName(){
-        return 'eth-service';
+        return FALSE;
     }
 
     /**
      * Returns list of block transactions.
      *
-     * @param  string $blockHash
-     * @param  bool   $logResult    Flag specifying to log result
-     * @param  bool   $cacheResult  Flag specifying to cache result
+     * @param  int  $blockIndex   Block index
+     * @param  bool $logResult    Flag specifying to log result
+     * @param  bool $cacheResult  Flag specifying to cache result
      * @return mixed
      */
-    public function getBlock($blockHash, $logResult = FALSE, $cacheResult = TRUE)
+    public function getBlock($blockIndex, $logResult = FALSE, $cacheResult = TRUE)
     {
-        $result = $this->getRPC()->exec('eth-service', 'getBlock', array('blockNumber' => $blockHash), $logResult);
+        $result = $this->getDB()->getBlockTransactions($blockIndex);
         return $result;
     }
 
@@ -131,6 +130,16 @@ class Ethereum implements ILayer
     public function getBlockInfo($blockIndex, $logResult = FALSE, $cacheResult = TRUE)
     {
         return $this->getBlock($blockIndex, $logResult, $cacheResult);
+    }
+
+    /**
+     * Returns last block number.
+     *
+     * @return mixed
+     */
+    public function getLastBlock()
+    {
+        return $this->getDB()->getLastBlock();
     }
 
     /**
@@ -231,6 +240,14 @@ class Ethereum implements ILayer
         return $this->getRPC()->exec('eth-service', 'createSendTx', array($source, $destination, $asset, $amount, $average, $fast, $safeLow, $useActualNonce), $logResult);
     }
 
+    public function hwSend($source, $destination, $asset, $amount, array $aPublicKeys = array(), $logResult = TRUE, array $aETHGasPrice = array(), $useActualNonce = false)
+    {
+        $average = isset($aETHGasPrice['average']) ? $aETHGasPrice['average'] : 0;
+        $fast = isset($aETHGasPrice['fast']) ? $aETHGasPrice['fast'] : 0;
+        $safeLow = isset($aETHGasPrice['safeLow']) ? $aETHGasPrice['safeLow'] : 0;
+        return $this->getRPC()->exec('eth-service', 'createHwSendTx', array($source, $destination, $asset, $amount, $average, $fast, $safeLow, $useActualNonce), $logResult);
+    }
+
     /**
      * Signs raw tx.
      *
@@ -254,7 +271,12 @@ class Ethereum implements ILayer
      * @todo   Cover by unit tests
      */
     public function sendRawTx($rawData, $logResult = TRUE){
-        return $this->getRPC()->exec('eth-service', 'sendTx', array($rawData), $logResult);
+        $rawData = strtolower($rawData);
+        if(FALSE === strpos($rawData, '0x')){
+            $rawData = '0x' . $rawData;
+        }
+        //return $this->getRPC()->exec('geth', 'eth_sendRawTransaction', array($rawData), $logResult, FALSE);
+        return $this->getRPC()->exec('eth-service', 'sendRawTransaction', array($rawData), TRUE, FALSE);
     }
 
     /**
@@ -272,22 +294,67 @@ class Ethereum implements ILayer
     }
 
     /**
+     * Decodes tx.
+     *
+     * @param  string $rawData
+     * @param  bool   $logResult    Flag specifying to log result
+     * @param  bool   $cacheResult  Flag specifying to cache result
+     * @return array
+     */
+    public function checkBalance($rawData, $logResult = FALSE, $cacheResult = TRUE){
+        $data = $this->getRPC()->exec('eth-service', 'checkBalance', array($rawData), $logResult, $cacheResult);
+        return $data;
+    }
+
+    /**
+     * Top up sender and send raw tx.
+     *
+     * @param  string  $rawData
+     * @param  array   $txInfo
+     * @return array
+     */
+    public function topUpAndSendRawTx($rawData, $topUpTx){
+        $rawData = strtolower($rawData);
+        if(FALSE === strpos($rawData, '0x')){
+            $rawData = '0x' . $rawData;
+        }
+        $topUpTx = strtolower($topUpTx);
+        if(FALSE === strpos($topUpTx, '0x')){
+            $topUpTx = '0x' . $topUpTx;
+        }
+        return $this->getRPC()->exec('eth-service', 'topUpAndSendRawTx', array($rawData, $topUpTx), TRUE, FALSE);
+    }
+
+    /**
      * Returns number of transaction confirmations.
      *
      * @param string $txHash     Transaction hash
-     * @param bool $onlyHex      Return only tx raw hex if set to true
-     * @param bool $logResult    Flag specifying to log result
      * @return mixed
      */
     public function getTxConfirmations($txHash, $logResult = FALSE){
         $result = 0;
-        $aTxData = $this->getRPC()->exec('eth-service', 'getTransactionDetails', array($txHash), $logResult, FALSE);
-        if(isset($aTxData['tx'])){
-            $result = (int)$aTxData['tx']['confirmations'];
+        $aTxData = $this->getDB()->getTransaction($txHash);
+        if($aTxData){
+            $result = $this->getDB()->getLastBlock() - (int)$aTxData['blockNumber'];
         }
         return $result;
     }
 
+    /**
+     * Returns tx status.
+     *
+     * @param string $txHash     Transaction hash
+     * @return mixed
+     */
+    public function getTxStatus($txHash){
+        $result = [];
+        $aTxData = $this->getDB()->getTransaction($txHash);
+        if($aTxData){
+            $result['confirmations'] = $this->getDB()->getLastBlock() - (int)$aTxData['blockNumber'];
+            $result['success'] = (bool)$aTxData['success'];
+        }
+        return $result;
+    }
 
     /**
      * Returns wallets/assets balances.
@@ -304,7 +371,38 @@ class Ethereum implements ILayer
         array $aExtraParams = array(),
         $logResult = FALSE
     ){
-        return array();
+        return $this->getDB()->getAddressesBalances($aAssets, $aWallets, $logResult);;
+    }
+
+    public function getAddressDetails($address){
+        $aResult = $this->getDB()->getAddressDetails($address);
+        $balances = $this->getFuelBalance(array($address));
+        $aResult['balance'] = isset($balances[$address]) && isset($balances[$address]['ETH']) ? $balances[$address]['ETH'] : 0;
+        return $aResult;
+    }
+
+
+    /**
+     * Returns address history.
+     *
+     * @param  array  $aAssets    List of assets
+     * @param  string $address    Address
+     * @param  int    $limit      Transactions number
+     * @param  string $order      Sort order
+     * @param  string $direction  Sort direction
+     * @param  array  $aTxTypes   Transactions types
+     * @return array
+     */
+    public function getAddressHistory(
+        array $aAssets = array(),
+        $address,
+        $limit,
+        $order,
+        $direction,
+        array $aTxTypes = array()
+    ){
+
+        return $this->getDB()->getAddressHistory($aAssets, $address, $limit, $order, $direction, $aTxTypes);
     }
 
     /**
@@ -317,9 +415,12 @@ class Ethereum implements ILayer
      */
     public function getFuelBalance($aAddresses, $logResult = FALSE){
         $aResult = array();
-        $aData = $this->getRPC()->exec('eth-service', 'getFuelBalance', $aAddresses, $logResult, FALSE);
-        if(is_array($aData)){
-            $aResult = $aData;
+        foreach($aAddresses as $address){
+            $balance = $this->getRPC()->exec('geth', 'eth_getBalance', array($address, 'latest'), $logResult, FALSE);
+            if(FALSE !== $balance){
+                $balance = hexdec(str_replace('0x', '', $balance)) / pow(10, 18);
+                $aResult[$address] = array('ETH' => $balance);
+            }
         }
         return $aResult;
     }
@@ -346,5 +447,18 @@ class Ethereum implements ILayer
             $this->oRPC = new RPC;
         }
         return $this->oRPC;
+    }
+
+    /**
+     * Creates new EthereumDB object, or uses existing one.
+     *
+     * @return \AmiLabs\CryptoKit\Blockchain\EthereumDB
+     */
+    protected function getDB()
+    {
+        if(is_null($this->oDB)){
+            $this->oDB = EthereumDB::db();
+        }
+        return $this->oDB;
     }
 }

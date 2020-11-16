@@ -63,6 +63,7 @@ class RPC {
             $this->loadConfiguration($checkServices);
         }
         foreach(self::$aConfig as $daemon => $aDaemonConfig){
+            $aDaemonConfig['driver'] = 'json'; // Temporary
             if(strpos($aDaemonConfig['driver'], '\\') !== FALSE){
                 $className = $aDaemonConfig['driver'];
             }else{
@@ -92,13 +93,16 @@ class RPC {
         }
         $aConfigs = Registry::useStorage('CFG')->get($servicesCfgKey, FALSE);
         if(is_array($aConfigs)){
+            $aConfig = $aConfigs[0];
+            /*
             $needToSearchConfig = true;
             $oCache = Cache::get('rpc-service' . $testnet);
             if($oCache->exists() && !$oCache->clearIfOlderThan(self::CHECK_INTERVAL)){
                 $aConfig = $oCache->load();
                 if($checkServices){
                     // Check if service is working
-                    if(BlockchainIO::getInstance()->checkServerConfig($aConfig)){
+                    // @todo: Ethereum check
+                    if(true || BlockchainIO::getInstance()->checkServerConfig($aConfig)){
                         $needToSearchConfig = false;
                     }else{
                         $oCache->clear();
@@ -121,7 +125,7 @@ class RPC {
                     }
                     if($checkServices){
                         // Check if service is working
-                        if(BlockchainIO::getInstance()->checkServerConfig($aConfig)){
+                        if(true || BlockchainIO::getInstance()->checkServerConfig($aConfig)){
                             $oCache->save($aConfig);
                             break;
                         }
@@ -130,6 +134,7 @@ class RPC {
                     }
                 }
             }
+            */
         }
         if(!is_array($aConfig)){
             throw new \Exception('Blockchain RPC configuration missing');

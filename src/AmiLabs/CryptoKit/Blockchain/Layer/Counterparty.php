@@ -23,6 +23,7 @@ use RuntimeException;
 use UnexpectedValueException;
 use AmiLabs\CryptoKit\Blockchain\ILayer;
 use AmiLabs\CryptoKit\RPC;
+use AmiLabs\CryptoKit\TX;
 use Moontoast\Math\BigNumber;
 use AmiLabs\DevKit\Logger;
 use AmiLabs\DevKit\Registry;
@@ -30,7 +31,7 @@ use AmiLabs\DevKit\Registry;
 class Counterparty implements ILayer
 {
     const LAST_BLOCK_INFO_ATTEMPTS = 7;
-    const LAST_BLOCK_INFO_WAIT     = 2000000; // 2.0 sec
+    const LAST_BLOCK_INFO_WAIT = 2000000; // 2.0 sec
     const MINER_FEE_VALUE = 30000;
 
     /**
